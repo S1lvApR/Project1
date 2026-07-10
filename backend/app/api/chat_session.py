@@ -61,7 +61,7 @@ async def add_message(
     if not session or session.user_id != current_user.id:
         return {"success": False, "message": "会话不存在或无权访问"}
     
-    message = ChatSessionService.add_message(db, session.id, role, content)
+    message = ChatSessionService.add_message(db, session.id, role, content, user=current_user)
     return {
         "success": True,
         "data": ChatSessionService.convert_message_to_dict(message) if message else None,

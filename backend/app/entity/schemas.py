@@ -52,8 +52,6 @@ class UserResponse(BaseModel):
     email: str
     phone: Optional[str] = None
     avatar: Optional[str] = None
-    is_active: bool
-    is_superuser: bool
     roles: list[str] = []
     last_login_at: Optional[datetime] = None
     created_at: datetime
