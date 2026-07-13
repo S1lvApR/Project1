@@ -47,6 +47,18 @@ class Settings(BaseSettings):
     # ── SignAnalyzer 智能体配置 ────────────────────
     SIGN_ANALYZER_API_KEY: str = "your-sign-analyzer-api-key"
     SIGN_ANALYZER_API_URL: str = "https://api.example.com/sign-analyzer"
+    # ── AI 供应商配置 ────────────────────────────────
+    AI_PROVIDER: str = "openai"
+    OPENAI_API_KEY: str = ""
+    OPENAI_API_BASE: str = "https://api.openai.com/v1"
+    OPENAI_MODEL: str = "gpt-4o"
+    DOUBAO_API_KEY: str = ""
+    DOUBAO_MODEL: str = "doubao-3.5"
+    QIANWEN_API_KEY: str = ""
+    QIANWEN_MODEL: str = "qwen2-72b-instruct"
+    BAILIAN_API_KEY: str = ""
+    BAILIAN_API_BASE: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    BAILIAN_MODEL: str = "qwen-turbo"
     # ── CORS 配置 ────────────────────────────────────
     ALLOWED_ORIGINS: str = (
         "http://localhost:3000,http://localhost:5173,http://localhost:8080"

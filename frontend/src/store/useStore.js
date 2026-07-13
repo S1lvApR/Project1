@@ -125,17 +125,9 @@ const requestFormData = async (url, options = {}) => {
 
 export const useStore = create((set, get) => ({
   user: null,
-  conversations: [
-    {
-      id: "1",
-      title: "New Conversation",
-      messages: [],
-      createdAt: new Date(),
-      persisted: false,
-    },
-  ],
-  openTabs: ["1"],
-  activeConversationId: "1",
+  conversations: [],
+  openTabs: [],
+  activeConversationId: null,
   loading: false,
   error: null,
   theme: "dark",
@@ -185,6 +177,12 @@ export const useStore = create((set, get) => ({
         },
       });
       await get().loadConversations();
+      
+      const convs = get().conversations;
+      if (!convs || convs.length === 0) {
+        await get().addConversation();
+      }
+      
       return data;
     } catch (error) {
       get().setError(error.message);
@@ -198,17 +196,9 @@ export const useStore = create((set, get) => ({
     removeToken();
     set({
       user: null,
-      conversations: [
-        {
-          id: "1",
-          title: "New Conversation",
-          messages: [],
-          createdAt: new Date(),
-          persisted: false,
-        },
-      ],
-      openTabs: ["1"],
-      activeConversationId: "1",
+      conversations: [],
+      openTabs: [],
+      activeConversationId: null,
     });
   },
 
@@ -228,6 +218,12 @@ export const useStore = create((set, get) => ({
         },
       });
       await get().loadConversations();
+      
+      const convs = get().conversations;
+      if (!convs || convs.length === 0) {
+        await get().addConversation();
+      }
+      
       return data;
     } catch (error) {
       get().setError(error.message);
@@ -459,159 +455,14 @@ export const useStore = create((set, get) => ({
     }
   },
 
-  recognizeLicensePlate: async (conversationId, files) => {
-    get().setLoading(true);
-    get().setError(null);
-    try {
-      conversationId = await get().ensureConversationPersisted(conversationId);
-      const formData = new FormData();
-      files.forEach((file) => {
-        formData.append("files", file);
-      });
-
-      const data = await requestFormData("/sign-analyzer/batch", {
-        method: "POST",
-        body: formData,
-      });
-
-      const resultContent = formatSignResult(data.data);
-
-      const userImages = files.map(file => ({
-        url: URL.createObjectURL(file),
-        name: file.name,
-      }));
-
-      set((state) => ({
-        conversations: state.conversations.map((c) =>
-          c.id === conversationId
-            ? {
-                ...c,
-                title:
-                  c.messages.length === 0 ? "车牌识别" : c.title,
-                messages: [
-                  ...c.messages,
-                  {
-                    id: Date.now().toString(),
-                    conversationId,
-                    role: "user",
-                    content: `识别了 ${data.data?.total_images || files.length} 张图片`,
-                    images: userImages,
-                    createdAt: new Date(),
-                  },
-                  {
-                    id: (Date.now() + 1).toString(),
-                    conversationId,
-                    role: "assistant",
-                    content: resultContent,
-                    createdAt: new Date(),
-                    type: "text",
-                  },
-                ],
-              }
-            : c,
-        ),
-      }));
-
-      await get().saveMessage(
-        conversationId,
-        "user",
-        `识别了 ${data.data?.total_images || files.length} 张图片`,
-      );
-      await get().saveMessage(conversationId, "assistant", resultContent);
-
-      const conversation = get().conversations.find(
-        (c) => c.id === conversationId,
-      );
-      if (conversation && conversation.messages.length === 2) {
-        await get().saveConversation(conversation);
-      }
-
-      return data;
-    } catch (error) {
-      get().setError(error.message);
-      throw error;
-    } finally {
-      get().setLoading(false);
-    }
-  },
-
-  recognizeHumans: async (conversationId, files) => {
-    get().setLoading(true);
-    get().setError(null);
-    try {
-      conversationId = await get().ensureConversationPersisted(conversationId);
-      const formData = new FormData();
-      files.forEach((file) => {
-        formData.append("files", file);
-      });
-
-      const data = await requestFormData("/sign-analyzer/batch", {
-        method: "POST",
-        body: formData,
-      });
-
-      const resultContent = formatSignResult(data.data);
-
-      const userImages = files.map(file => ({
-        url: URL.createObjectURL(file),
-        name: file.name,
-      }));
-
-      set((state) => ({
-        conversations: state.conversations.map((c) =>
-          c.id === conversationId
-            ? {
-                ...c,
-                title:
-                  c.messages.length === 0 ? "行人检测" : c.title,
-                messages: [
-                  ...c.messages,
-                  {
-                    id: Date.now().toString(),
-                    conversationId,
-                    role: "user",
-                    content: `识别了 ${data.data?.total_images || files.length} 张图片`,
-                    images: userImages,
-                    createdAt: new Date(),
-                  },
-                  {
-                    id: (Date.now() + 1).toString(),
-                    conversationId,
-                    role: "assistant",
-                    content: resultContent,
-                    createdAt: new Date(),
-                    type: "text",
-                  },
-                ],
-              }
-            : c,
-        ),
-      }));
-
-      await get().saveMessage(
-        conversationId,
-        "user",
-        `识别了 ${data.data?.total_images || files.length} 张图片`,
-      );
-      await get().saveMessage(conversationId, "assistant", resultContent);
-
-      const conversation = get().conversations.find(
-        (c) => c.id === conversationId,
-      );
-      if (conversation && conversation.messages.length === 2) {
-        await get().saveConversation(conversation);
-      }
-
-      return data;
-    } catch (error) {
-      get().setError(error.message);
-      throw error;
-    } finally {
-      get().setLoading(false);
-    }
-  },
+  
 
   addConversation: async () => {
+    const token = getToken();
+    if (!token) {
+      throw new Error("请先登录");
+    }
+    
     try {
       const data = await request(
         `/chat-sessions?title=${encodeURIComponent("New Chat")}`,
@@ -641,29 +492,23 @@ export const useStore = create((set, get) => ({
       }
     } catch (error) {
       console.error("Failed to create conversation:", error);
+      throw error;
     }
 
-    const newId = Date.now().toString();
-    const newConversation = {
-      id: newId,
-      title: "New Chat",
-      messages: [],
-      createdAt: new Date(),
-      persisted: false,
-    };
-    set((state) => ({
-      conversations: [...state.conversations, newConversation],
-      openTabs: [...state.openTabs, newId],
-      activeConversationId: newId,
-    }));
-    return newId;
+    throw new Error("创建会话失败");
   },
 
   ensureConversationPersisted: async (conversationId) => {
     const token = getToken();
-    if (!token) return conversationId;
+    if (!token) throw new Error("请先登录");
+    
     const conv = get().conversations.find((c) => c.id === conversationId);
-    if (!conv || conv.persisted) return conversationId;
+    if (!conv) {
+      return await get().addConversation();
+    }
+    
+    if (conv.persisted) return conversationId;
+    
     try {
       const data = await request(
         `/chat-sessions?title=${encodeURIComponent(conv.title || "New Chat")}`,
@@ -699,7 +544,8 @@ export const useStore = create((set, get) => ({
     } catch (error) {
       console.error("Failed to persist conversation:", error);
     }
-    return conversationId;
+    
+    return await get().addConversation();
   },
 
   setActiveConversation: (id) => {
@@ -778,58 +624,6 @@ export const useStore = create((set, get) => ({
       return;
     }
 
-    const trimmedContent = content.trim().toLowerCase();
-    const isSignRequest = hasImages ||
-      trimmedContent.includes("标志识别") ||
-      trimmedContent.includes("交通标志") ||
-      trimmedContent.includes("信号灯");
-
-    if (isSignRequest && hasImages) {
-      get().setLoading(true);
-      try {
-        const files = images.map(img => img.file);
-        await get().recognizeSigns(conversationId, files);
-      } catch (error) {
-        console.error("Image recognition failed:", error);
-        get().setError(error.message);
-      } finally {
-        get().setLoading(false);
-      }
-      return;
-    }
-
-    if (isSignRequest && !hasImages) {
-      const uploadMessage = {
-        id: Date.now().toString(),
-        conversationId,
-        role: "assistant",
-        content: "",
-        createdAt: new Date(),
-        type: "sign_upload",
-      };
-
-      set((state) => ({
-        conversations: state.conversations.map((c) =>
-          c.id === conversationId
-            ? {
-                ...c,
-                messages: [...c.messages, uploadMessage],
-                title:
-                  c.messages.length === 0 ? "交通标志与信号灯识别" : c.title,
-              }
-            : c,
-        ),
-      }));
-
-      const conversation = get().conversations.find(
-        (c) => c.id === conversationId,
-      );
-      if (conversation && conversation.messages.length === 1) {
-        await get().saveConversation(conversation);
-      }
-      return;
-    }
-
     const userMessage = {
       id: Date.now().toString(),
       conversationId,
@@ -851,57 +645,129 @@ export const useStore = create((set, get) => ({
       ),
     }));
 
-    const response = await get().saveMessage(conversationId, "user", content);
-
-    const conversation = get().conversations.find(
-      (c) => c.id === conversationId,
-    );
-    if (conversation && conversation.messages.length === 1) {
-      await get().saveConversation(conversation);
-    }
-
-    if (content.startsWith("/") && response && response.data) {
-      const assistantMessage = {
-        id: response.data.id,
+    const recognitionKeywords = ["识别交通信号", "识别交通标志", "识别图片", "帮我识别", "识别一下", "识别图", "识别信号"];
+    const isRecognitionRequest = recognitionKeywords.some(keyword => content.includes(keyword));
+    
+    if (isRecognitionRequest) {
+      const uploadMessage = {
+        id: (Date.now() + 1).toString(),
         conversationId,
-        role: response.data.role,
-        content: response.data.content,
-        createdAt: response.data.createdAt
-          ? new Date(response.data.createdAt)
-          : new Date(),
-        type: "text",
+        role: "assistant",
+        content: "请上传图片进行识别。支持上传单张图片、文件夹或ZIP压缩包。",
+        createdAt: new Date(),
+        type: "sign_upload",
       };
       set((state) => ({
         conversations: state.conversations.map((c) =>
           c.id === conversationId
-            ? { ...c, messages: [...c.messages, assistantMessage] }
+            ? { ...c, messages: [...c.messages, uploadMessage] }
             : c,
         ),
       }));
       return;
     }
 
-    setTimeout(async () => {
-      const responseContent = generateResponse();
-      const assistantMessage = {
-        id: (Date.now() + 1).toString(),
-        conversationId,
-        role: "assistant",
-        content: responseContent,
-        createdAt: new Date(),
-        type: "text",
+    if (content.startsWith("/")) {
+      const response = await get().saveMessage(conversationId, "user", content);
+      if (response && response.data) {
+        const assistantMessage = {
+          id: response.data.id,
+          conversationId,
+          role: response.data.role,
+          content: response.data.content,
+          createdAt: response.data.createdAt
+            ? new Date(response.data.createdAt)
+            : new Date(),
+          type: "text",
+        };
+        set((state) => ({
+          conversations: state.conversations.map((c) =>
+            c.id === conversationId
+              ? { ...c, messages: [...c.messages, assistantMessage] }
+              : c,
+          ),
+        }));
+      }
+      return;
+    }
+
+    get().setLoading(true);
+    try {
+      const persistedId = await get().ensureConversationPersisted(conversationId);
+      
+      let imageBase64 = null;
+      if (hasImages && images.length > 0) {
+        imageBase64 = await get().fileToBase64(images[0].file);
+      }
+
+      const bodyData = {
+        content: content,
+        image_base64: imageBase64
       };
 
-      set((state) => ({
-        conversations: state.conversations.map((c) =>
-          c.id === conversationId
-            ? { ...c, messages: [...c.messages, assistantMessage] }
-            : c,
-        ),
-      }));
+      const aiResponse = await request(
+        `/chat-sessions/${persistedId}/chat`,
+        {
+          method: "POST",
+          body: JSON.stringify(bodyData),
+        },
+      );
 
-      await get().saveMessage(conversationId, "assistant", responseContent);
-    }, 1000);
+      if (aiResponse.success && aiResponse.data) {
+        const assistantMessage = {
+          id: aiResponse.data.id,
+          conversationId: persistedId,
+          role: aiResponse.data.role,
+          content: aiResponse.data.content,
+          createdAt: aiResponse.data.createdAt
+            ? new Date(aiResponse.data.createdAt)
+            : new Date(),
+          type: "text",
+          images: aiResponse.data.images || [],
+        };
+
+        set((state) => ({
+          conversations: state.conversations.map((c) =>
+            c.id === conversationId || c.id === persistedId
+              ? {
+                  ...c,
+                  messages: c.messages.map((msg) =>
+                    msg.id === userMessage.id
+                      ? { ...msg, images: aiResponse.data.user_images || msg.images }
+                      : msg
+                  ),
+                }
+              : c,
+          ),
+        }));
+
+        set((state) => ({
+          conversations: state.conversations.map((c) =>
+            c.id === conversationId || c.id === persistedId
+              ? { ...c, messages: [...c.messages, assistantMessage] }
+              : c,
+          ),
+        }));
+      }
+    } catch (error) {
+      console.error("AI chat failed:", error);
+      get().setError(error.message);
+    } finally {
+      get().setLoading(false);
+    }
+  },
+
+  fileToBase64: (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        const base64 = result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   },
 
   updateMessage: (conversationId, messageId, content) => {

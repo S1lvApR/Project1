@@ -3,7 +3,7 @@ import { Bot, User, Sparkles, Upload, FolderOpen, Loader2, Image } from 'lucide-
 import { useStore } from '../store/useStore'
 
 export function ChatArea() {
-  const { conversations, activeConversationId, user, recognizeLicensePlate, recognizeHumans, recognizeSigns, loading } = useStore()
+  const { conversations, activeConversationId, user, recognizeSigns, loading } = useStore()
   const messagesEndRef = useRef(null)
   const [uploadingMessageId, setUploadingMessageId] = useState(null)
 
@@ -14,54 +14,6 @@ export function ChatArea() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
-
-  const handleImageUpload = useCallback(async (e, conversationId) => {
-    const files = Array.from(e.target.files)
-    if (files.length === 0) return
-
-    const imageFiles = files.filter(file => file.type.startsWith('image/'))
-    if (imageFiles.length === 0) return
-
-    setUploadingMessageId(conversationId)
-    await recognizeLicensePlate(conversationId, imageFiles)
-    setUploadingMessageId(null)
-  }, [recognizeLicensePlate])
-
-  const handleFolderUpload = useCallback(async (e, conversationId) => {
-    const files = Array.from(e.target.files)
-    if (files.length === 0) return
-
-    const imageFiles = files.filter(file => file.type.startsWith('image/'))
-    if (imageFiles.length === 0) return
-
-    setUploadingMessageId(conversationId)
-    await recognizeLicensePlate(conversationId, imageFiles)
-    setUploadingMessageId(null)
-  }, [recognizeLicensePlate])
-
-  const handleHumanImageUpload = useCallback(async (e, conversationId) => {
-    const files = Array.from(e.target.files)
-    if (files.length === 0) return
-
-    const imageFiles = files.filter(file => file.type.startsWith('image/'))
-    if (imageFiles.length === 0) return
-
-    setUploadingMessageId(conversationId)
-    await recognizeHumans(conversationId, imageFiles)
-    setUploadingMessageId(null)
-  }, [recognizeHumans])
-
-  const handleHumanFolderUpload = useCallback(async (e, conversationId) => {
-    const files = Array.from(e.target.files)
-    if (files.length === 0) return
-
-    const imageFiles = files.filter(file => file.type.startsWith('image/'))
-    if (imageFiles.length === 0) return
-
-    setUploadingMessageId(conversationId)
-    await recognizeHumans(conversationId, imageFiles)
-    setUploadingMessageId(null)
-  }, [recognizeHumans])
 
   const handleSignImageUpload = useCallback(async (e, conversationId) => {
     const files = Array.from(e.target.files)
@@ -89,145 +41,7 @@ export function ChatArea() {
     setUploadingMessageId(null)
   }, [recognizeSigns])
 
-  const renderHumanCountUploadCard = (conversationId) => {
-    const isUploading = uploadingMessageId === conversationId || loading
-
-    return (
-      <div className="p-6 rounded-2xl bg-dark-700 border border-dark-600">
-        <p className="text-white font-medium mb-4">请上传包含行人的图片</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button
-            onClick={() => document.getElementById(`human-image-upload-${conversationId}`)?.click()}
-            disabled={isUploading}
-            className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-dashed border-dark-500 hover:border-accent-500 hover:bg-dark-600 transition-all group disabled:opacity-50"
-          >
-            <div className="w-12 h-12 rounded-full bg-accent-500/10 flex items-center justify-center mb-3 group-hover:bg-accent-500/20 transition-colors">
-              {isUploading ? (
-                <Loader2 className="w-6 h-6 text-accent-500 animate-spin" />
-              ) : (
-                <Upload className="w-6 h-6 text-accent-500" />
-              )}
-            </div>
-            <span className="text-white font-medium">上传图片</span>
-            <span className="text-dark-500 text-sm mt-1">支持 JPG、PNG、BMP</span>
-          </button>
-
-          <button
-            onClick={() => document.getElementById(`human-folder-upload-${conversationId}`)?.click()}
-            disabled={isUploading}
-            className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-dashed border-dark-500 hover:border-accent-500 hover:bg-dark-600 transition-all group disabled:opacity-50"
-          >
-            <div className="w-12 h-12 rounded-full bg-accent-500/10 flex items-center justify-center mb-3 group-hover:bg-accent-500/20 transition-colors">
-              {isUploading ? (
-                <Loader2 className="w-6 h-6 text-accent-500 animate-spin" />
-              ) : (
-                <FolderOpen className="w-6 h-6 text-accent-500" />
-              )}
-            </div>
-            <span className="text-white font-medium">选择文件夹</span>
-            <span className="text-dark-500 text-sm mt-1">批量读取图片</span>
-          </button>
-        </div>
-
-        <input
-          id={`human-image-upload-${conversationId}`}
-          type="file"
-          multiple
-          accept="image/*"
-          onChange={(e) => handleHumanImageUpload(e, conversationId)}
-          className="hidden"
-        />
-
-        <input
-          id={`human-folder-upload-${conversationId}`}
-          type="file"
-          multiple
-          webkitdirectory="true"
-          directory="true"
-          accept="image/*"
-          onChange={(e) => handleHumanFolderUpload(e, conversationId)}
-          className="hidden"
-        />
-
-        {isUploading && (
-          <div className="mt-4 flex items-center justify-center gap-2 text-accent-500">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span className="text-sm">正在识别中...</span>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  const renderLicensePlateUploadCard = (conversationId) => {
-    const isUploading = uploadingMessageId === conversationId || loading
-
-    return (
-      <div className="p-6 rounded-2xl bg-dark-700 border border-dark-600">
-        <p className="text-white font-medium mb-4">请上传包含车牌的图片</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button
-            onClick={() => document.getElementById(`image-upload-${conversationId}`)?.click()}
-            disabled={isUploading}
-            className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-dashed border-dark-500 hover:border-accent-500 hover:bg-dark-600 transition-all group disabled:opacity-50"
-          >
-            <div className="w-12 h-12 rounded-full bg-accent-500/10 flex items-center justify-center mb-3 group-hover:bg-accent-500/20 transition-colors">
-              {isUploading ? (
-                <Loader2 className="w-6 h-6 text-accent-500 animate-spin" />
-              ) : (
-                <Upload className="w-6 h-6 text-accent-500" />
-              )}
-            </div>
-            <span className="text-white font-medium">上传图片</span>
-            <span className="text-dark-500 text-sm mt-1">支持 JPG、PNG、BMP</span>
-          </button>
-
-          <button
-            onClick={() => document.getElementById(`folder-upload-${conversationId}`)?.click()}
-            disabled={isUploading}
-            className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-dashed border-dark-500 hover:border-accent-500 hover:bg-dark-600 transition-all group disabled:opacity-50"
-          >
-            <div className="w-12 h-12 rounded-full bg-accent-500/10 flex items-center justify-center mb-3 group-hover:bg-accent-500/20 transition-colors">
-              {isUploading ? (
-                <Loader2 className="w-6 h-6 text-accent-500 animate-spin" />
-              ) : (
-                <FolderOpen className="w-6 h-6 text-accent-500" />
-              )}
-            </div>
-            <span className="text-white font-medium">选择文件夹</span>
-            <span className="text-dark-500 text-sm mt-1">批量读取图片</span>
-          </button>
-        </div>
-
-        <input
-          id={`image-upload-${conversationId}`}
-          type="file"
-          multiple
-          accept="image/*"
-          onChange={(e) => handleImageUpload(e, conversationId)}
-          className="hidden"
-        />
-
-        <input
-          id={`folder-upload-${conversationId}`}
-          type="file"
-          multiple
-          webkitdirectory="true"
-          directory="true"
-          accept="image/*"
-          onChange={(e) => handleFolderUpload(e, conversationId)}
-          className="hidden"
-        />
-
-        {isUploading && (
-          <div className="mt-4 flex items-center justify-center gap-2 text-accent-500">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span className="text-sm">正在识别中...</span>
-          </div>
-        )}
-      </div>
-    )
-  }
+  
 
   const renderSignUploadCard = (conversationId) => {
     const isUploading = uploadingMessageId === conversationId || loading
@@ -383,16 +197,13 @@ export function ChatArea() {
                 )}
               </div>
 
-              {message.type === 'license_plate_upload' ? (
+              {message.type === 'sign_upload' ? (
                 <div className="max-w-[75%]">
-                  {renderLicensePlateUploadCard(message.conversationId)}
-                </div>
-              ) : message.type === 'human_count_upload' ? (
-                <div className="max-w-[75%]">
-                  {renderHumanCountUploadCard(message.conversationId)}
-                </div>
-              ) : message.type === 'sign_upload' ? (
-                <div className="max-w-[75%]">
+                  <div className="p-4 rounded-2xl bg-dark-800 text-white rounded-bl-md mb-3">
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                      {message.content}
+                    </p>
+                  </div>
                   {renderSignUploadCard(message.conversationId)}
                 </div>
               ) : (

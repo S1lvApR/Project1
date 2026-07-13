@@ -447,6 +447,7 @@ class ChatMessage(Base):
         String(20), nullable=False, comment="消息⻆⾊：user/assistant/tool/system"
     )
     content = Column(Text, nullable=False, comment="消息内容")
+    image_url = Column(String(500), nullable=True, comment="图片URL")
     # 智能体路由信息
     agent_used = Column(
         String(50),

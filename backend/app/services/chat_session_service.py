@@ -44,7 +44,7 @@ class ChatSessionService:
         return session
 
     @staticmethod
-    def add_message(db: Session, session_id: int, role: str, content: str, message_type: str = "text", user=None) -> ChatMessage:
+    def add_message(db: Session, session_id: int, role: str, content: str, message_type: str = "text", user=None, image_url: str = None) -> ChatMessage:
         session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
         if not session:
             return None
@@ -81,6 +81,7 @@ class ChatSessionService:
             session_id=session_id,
             role=role,
             content=content,
+            image_url=image_url,
         )
         db.add(message)
         
@@ -179,14 +180,17 @@ class ChatSessionService:
         messages = []
         if session.messages:
             for msg in session.messages:
-                messages.append({
+                message_dict = {
                     "id": str(msg.id),
                     "conversationId": session.session_uuid,
                     "role": msg.role,
                     "content": msg.content,
                     "createdAt": msg.created_at.isoformat() if msg.created_at else None,
                     "type": "text",
-                })
+                }
+                if msg.image_url:
+                    message_dict["images"] = [{ "url": msg.image_url, "name": "image" }]
+                messages.append(message_dict)
         
         return {
             "id": session.session_uuid,
@@ -198,7 +202,7 @@ class ChatSessionService:
 
     @staticmethod
     def convert_message_to_dict(message: ChatMessage) -> dict:
-        return {
+        result = {
             "id": str(message.id),
             "conversationId": message.session.session_uuid,
             "role": message.role,
@@ -206,3 +210,6 @@ class ChatSessionService:
             "createdAt": message.created_at.isoformat() if message.created_at else None,
             "type": "text",
         }
+        if message.image_url:
+            result["images"] = [{ "url": message.image_url, "name": "image" }]
+        return result

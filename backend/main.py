@@ -8,9 +8,10 @@ from app.api.chat_session import router as chat_session_router
 from app.config.settings import settings
 from app.core.exceptions import register_exception_handlers
 from app.middleware.request_logger import RequestLogMiddleware
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 
 def init_minio():
@@ -40,7 +41,23 @@ async def lifespan(_app: FastAPI):
     print("服务已关闭")
 
 
-# 创建 FastAPI 实例
+class SizeLimitMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, max_size=10 * 1024 * 1024):
+        super().__init__(app)
+        self.max_size = max_size
+
+    async def dispatch(self, request: Request, call_next):
+        if request.method in ["POST", "PUT", "PATCH"]:
+            body = await request.body()
+            if len(body) > self.max_size:
+                return Response(
+                    content="请求体大小超过限制",
+                    status_code=413,
+                    media_type="application/json"
+                )
+        return await call_next(request)
+
+
 app = FastAPI(
     title="L Agent Platform",
     version="0.1.0",
@@ -67,10 +84,11 @@ app.include_router(sign_analyzer_router)
 app.include_router(chat_session_router)
 
 # ── 静态文件服务 ───────────────────────────────────────
-# 用于访问上传的头像文件
+# 用于访问上传的头像文件和聊天图片
 uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
-if os.path.exists(uploads_dir):
-    app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+if not os.path.exists(uploads_dir):
+    os.makedirs(uploads_dir)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
@@ -78,6 +96,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SizeLimitMiddleware, max_size=50 * 1024 * 1024)
 app.add_middleware(RequestLogMiddleware)
 
 

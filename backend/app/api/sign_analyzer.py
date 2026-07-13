@@ -61,7 +61,7 @@ async def analyze_sign(
     }
     """
     ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp"}
-    MAX_FILE_SIZE = 2 * 1024 * 1024
+    MAX_FILE_SIZE = 10 * 1024 * 1024
     
     filename = image.filename.lower()
     ext = os.path.splitext(filename)[1]
@@ -72,7 +72,7 @@ async def analyze_sign(
     image_bytes = await image.read()
     
     if len(image_bytes) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=400, detail="图片大小不能超过2MB")
+        raise HTTPException(status_code=400, detail="图片大小不能超过10MB")
     
     file_cache_service.store_file(
         db=db,
@@ -140,7 +140,7 @@ async def batch_analyze_sign(
     }
     """
     ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp"}
-    MAX_FILE_SIZE = 2 * 1024 * 1024
+    MAX_FILE_SIZE = 10 * 1024 * 1024
     
     filenames = [file.filename for file in files]
     logger.info(f"[前端请求] 批量图片交通标志与信号灯识别 - 文件数: {len(files)}, 文件名: {filenames}, 用户: {current_user.username}")
@@ -154,7 +154,7 @@ async def batch_analyze_sign(
         ext = os.path.splitext(filename)[1]
         
         if len(file_bytes) > MAX_FILE_SIZE:
-            raise HTTPException(status_code=400, detail=f"文件 {file.filename} 大小不能超过2MB")
+            raise HTTPException(status_code=400, detail=f"文件 {file.filename} 大小不能超过10MB")
         
         if filename.endswith('.zip'):
             file_cache_service.store_file(
