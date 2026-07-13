@@ -12,9 +12,7 @@ export default function Home() {
   const [showLogout, setShowLogout] = useState(false)
   let logoutTimeout = null
   const [sidebarWidth, setSidebarWidth] = useState(256)
-  const [chatInputHeight, setChatInputHeight] = useState(180)
   const [isResizingSidebar, setIsResizingSidebar] = useState(false)
-  const [isResizingInput, setIsResizingInput] = useState(false)
   
   const [activeModal, setActiveModal] = useState(null)
   const [oldPassword, setOldPassword] = useState('')
@@ -44,32 +42,19 @@ export default function Home() {
     setIsResizingSidebar(true)
   }
 
-  const handleInputMouseDown = (e) => {
-    e.preventDefault()
-    setIsResizingInput(true)
-  }
-
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (isResizingSidebar) {
         const newWidth = Math.max(200, Math.min(500, e.clientX))
         setSidebarWidth(newWidth)
       }
-      if (isResizingInput) {
-        const containerRect = document.querySelector('.chat-container')?.getBoundingClientRect()
-        if (containerRect) {
-          const newHeight = Math.max(140, Math.min(400, containerRect.bottom - e.clientY))
-          setChatInputHeight(newHeight)
-        }
-      }
     }
 
     const handleMouseUp = () => {
       setIsResizingSidebar(false)
-      setIsResizingInput(false)
     }
 
-    if (isResizingSidebar || isResizingInput) {
+    if (isResizingSidebar) {
       document.addEventListener('mousemove', handleMouseMove)
       document.addEventListener('mouseup', handleMouseUp)
     }
@@ -78,7 +63,7 @@ export default function Home() {
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isResizingSidebar, isResizingInput])
+  }, [isResizingSidebar])
 
   return (
     <div className={`flex h-screen bg-dark-900 ${theme === 'light' ? 'theme-light' : ''}`}>
@@ -187,12 +172,7 @@ export default function Home() {
 
         <ChatArea />
 
-        <div
-          className={`h-1 bg-dark-600 cursor-row-resize hover:bg-dark-500 transition-colors ${isResizingInput ? 'bg-accent-500' : ''}`}
-          onMouseDown={handleInputMouseDown}
-        />
-
-        <ChatInput style={{ height: `${chatInputHeight}px` }} />
+        <ChatInput />
       </div>
 
       <LoginModal

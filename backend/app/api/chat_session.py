@@ -6,7 +6,7 @@ from app.api.auth import get_current_user
 from app.entity.db_models import User
 from app.services.chat_session_service import ChatSessionService
 
-router = APIRouter(prefix="/chat-sessions", tags=["chat-sessions"])
+router = APIRouter(prefix="/api/chat-sessions", tags=["chat-sessions"])
 
 
 @router.get("")

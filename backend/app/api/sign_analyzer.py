@@ -39,7 +39,7 @@ async def analyze_sign(
         "message": "识别成功",
         "data": {
             "time": "2026/07/09",
-            "agent_name": "SignAnalayzer",
+            "agent_name": "SignAnalyzer",
             "traffic_signs": [
                 {
                     "type": "限速标志",
@@ -127,7 +127,7 @@ async def batch_analyze_sign(
             "total_images": 3,
             "total_signs": 5,
             "total_lights": 2,
-            "agent_name": "SignAnalayzer",
+            "agent_name": "SignAnalyzer",
             "results": [
                 {
                     "image_index": 0,

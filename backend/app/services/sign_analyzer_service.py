@@ -19,7 +19,7 @@ if not os.path.exists(TEMP_UPLOAD_DIR):
 class SignAnalyzerService:
     """交通标志与信号灯识别服务"""
 
-    AGENT_NAME = "SignAnalayzer"
+    AGENT_NAME = "SignAnalyzer"
 
     @staticmethod
     def save_image_to_temp(image_bytes, filename):

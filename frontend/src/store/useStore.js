@@ -83,6 +83,11 @@ const request = async (url, options = {}) => {
   const data = await response.json();
 
   if (!response.ok) {
+    if (response.status === 401) {
+      removeToken();
+      set({ user: null });
+      window.location.href = "/";
+    }
     throw new Error(data.detail || data.message || "请求失败");
   }
 
@@ -107,6 +112,11 @@ const requestFormData = async (url, options = {}) => {
   const data = await response.json();
 
   if (!response.ok) {
+    if (response.status === 401) {
+      removeToken();
+      set({ user: null });
+      window.location.href = "/";
+    }
     throw new Error(data.detail || data.message || "请求失败");
   }
 
@@ -390,6 +400,11 @@ export const useStore = create((set, get) => ({
 
       const resultContent = formatSignResult(data.data);
 
+      const userImages = files.map(file => ({
+        url: URL.createObjectURL(file),
+        name: file.name,
+      }));
+
       set((state) => ({
         conversations: state.conversations.map((c) =>
           c.id === conversationId
@@ -404,6 +419,159 @@ export const useStore = create((set, get) => ({
                     conversationId,
                     role: "user",
                     content: `识别了 ${data.data?.total_images || files.length} 张图片`,
+                    images: userImages,
+                    createdAt: new Date(),
+                  },
+                  {
+                    id: (Date.now() + 1).toString(),
+                    conversationId,
+                    role: "assistant",
+                    content: resultContent,
+                    createdAt: new Date(),
+                    type: "text",
+                  },
+                ],
+              }
+            : c,
+        ),
+      }));
+
+      await get().saveMessage(
+        conversationId,
+        "user",
+        `识别了 ${data.data?.total_images || files.length} 张图片`,
+      );
+      await get().saveMessage(conversationId, "assistant", resultContent);
+
+      const conversation = get().conversations.find(
+        (c) => c.id === conversationId,
+      );
+      if (conversation && conversation.messages.length === 2) {
+        await get().saveConversation(conversation);
+      }
+
+      return data;
+    } catch (error) {
+      get().setError(error.message);
+      throw error;
+    } finally {
+      get().setLoading(false);
+    }
+  },
+
+  recognizeLicensePlate: async (conversationId, files) => {
+    get().setLoading(true);
+    get().setError(null);
+    try {
+      conversationId = await get().ensureConversationPersisted(conversationId);
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append("files", file);
+      });
+
+      const data = await requestFormData("/sign-analyzer/batch", {
+        method: "POST",
+        body: formData,
+      });
+
+      const resultContent = formatSignResult(data.data);
+
+      const userImages = files.map(file => ({
+        url: URL.createObjectURL(file),
+        name: file.name,
+      }));
+
+      set((state) => ({
+        conversations: state.conversations.map((c) =>
+          c.id === conversationId
+            ? {
+                ...c,
+                title:
+                  c.messages.length === 0 ? "车牌识别" : c.title,
+                messages: [
+                  ...c.messages,
+                  {
+                    id: Date.now().toString(),
+                    conversationId,
+                    role: "user",
+                    content: `识别了 ${data.data?.total_images || files.length} 张图片`,
+                    images: userImages,
+                    createdAt: new Date(),
+                  },
+                  {
+                    id: (Date.now() + 1).toString(),
+                    conversationId,
+                    role: "assistant",
+                    content: resultContent,
+                    createdAt: new Date(),
+                    type: "text",
+                  },
+                ],
+              }
+            : c,
+        ),
+      }));
+
+      await get().saveMessage(
+        conversationId,
+        "user",
+        `识别了 ${data.data?.total_images || files.length} 张图片`,
+      );
+      await get().saveMessage(conversationId, "assistant", resultContent);
+
+      const conversation = get().conversations.find(
+        (c) => c.id === conversationId,
+      );
+      if (conversation && conversation.messages.length === 2) {
+        await get().saveConversation(conversation);
+      }
+
+      return data;
+    } catch (error) {
+      get().setError(error.message);
+      throw error;
+    } finally {
+      get().setLoading(false);
+    }
+  },
+
+  recognizeHumans: async (conversationId, files) => {
+    get().setLoading(true);
+    get().setError(null);
+    try {
+      conversationId = await get().ensureConversationPersisted(conversationId);
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append("files", file);
+      });
+
+      const data = await requestFormData("/sign-analyzer/batch", {
+        method: "POST",
+        body: formData,
+      });
+
+      const resultContent = formatSignResult(data.data);
+
+      const userImages = files.map(file => ({
+        url: URL.createObjectURL(file),
+        name: file.name,
+      }));
+
+      set((state) => ({
+        conversations: state.conversations.map((c) =>
+          c.id === conversationId
+            ? {
+                ...c,
+                title:
+                  c.messages.length === 0 ? "行人检测" : c.title,
+                messages: [
+                  ...c.messages,
+                  {
+                    id: Date.now().toString(),
+                    conversationId,
+                    role: "user",
+                    content: `识别了 ${data.data?.total_images || files.length} 张图片`,
+                    images: userImages,
                     createdAt: new Date(),
                   },
                   {
@@ -597,15 +765,40 @@ export const useStore = create((set, get) => ({
     });
   },
 
-  sendMessage: async (conversationId, content) => {
+  sendMessage: async (conversationId, content, images = []) => {
+    if (!conversationId) {
+      conversationId = await get().addConversation();
+    }
     conversationId = await get().ensureConversationPersisted(conversationId);
-    const trimmedContent = content.trim().toLowerCase();
 
-    if (
+    const hasImages = images.length > 0;
+    const hasText = content.trim().length > 0;
+
+    if (!hasImages && !hasText) {
+      return;
+    }
+
+    const trimmedContent = content.trim().toLowerCase();
+    const isSignRequest = hasImages ||
       trimmedContent.includes("标志识别") ||
       trimmedContent.includes("交通标志") ||
-      trimmedContent.includes("信号灯")
-    ) {
+      trimmedContent.includes("信号灯");
+
+    if (isSignRequest && hasImages) {
+      get().setLoading(true);
+      try {
+        const files = images.map(img => img.file);
+        await get().recognizeSigns(conversationId, files);
+      } catch (error) {
+        console.error("Image recognition failed:", error);
+        get().setError(error.message);
+      } finally {
+        get().setLoading(false);
+      }
+      return;
+    }
+
+    if (isSignRequest && !hasImages) {
       const uploadMessage = {
         id: Date.now().toString(),
         conversationId,
@@ -642,6 +835,7 @@ export const useStore = create((set, get) => ({
       conversationId,
       role: "user",
       content,
+      images: hasImages ? images.map(img => ({ url: img.url, name: img.name })) : [],
       createdAt: new Date(),
     };
 

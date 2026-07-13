@@ -362,14 +362,22 @@ export function ChatArea() {
               style={{ animationDelay: `${index * 0.05}s` }}
             >
               <div
-                className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden ${
                   message.role === 'user'
-                    ? 'bg-gradient-to-br from-accent-500 to-accent-600'
+                    ? user?.avatar ? '' : 'bg-gradient-to-br from-accent-500 to-accent-600'
                     : 'bg-dark-700'
                 }`}
               >
                 {message.role === 'user' ? (
-                  <User className="w-5 h-5 text-white" />
+                  user?.avatar ? (
+                    <img
+                      src={user.avatar}
+                      alt="User"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-5 h-5 text-white" />
+                  )
                 ) : (
                   <Bot className="w-5 h-5 text-accent-500" />
                 )}
@@ -395,9 +403,30 @@ export function ChatArea() {
                       : 'bg-dark-800 text-white rounded-bl-md'
                   }`}
                 >
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                    {message.content}
-                  </p>
+                  {message.content && (
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap mb-3">
+                      {message.content}
+                    </p>
+                  )}
+                  {message.images && message.images.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {message.images.map((img, idx) => (
+                        <div
+                          key={idx}
+                          className="relative group cursor-pointer"
+                        >
+                          <img
+                            src={img.url}
+                            alt={img.name}
+                            className="max-w-40 max-h-40 rounded-lg object-cover border border-dark-500 hover:border-accent-500 transition-colors"
+                          />
+                          <div className="absolute bottom-1 left-1 right-1 bg-black/60 text-white text-xs px-2 py-0.5 rounded truncate opacity-0 group-hover:opacity-100 transition-opacity">
+                            {img.name}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
