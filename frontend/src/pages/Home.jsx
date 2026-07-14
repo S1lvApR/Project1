@@ -6,6 +6,7 @@ import { ConversationTabs } from '../components/ConversationTabs'
 import { ChatArea } from '../components/ChatArea'
 import { ChatInput } from '../components/ChatInput'
 import { LoginModal } from '../components/LoginModal'
+import { CameraDetection } from '../components/CameraDetection'
 
 export default function Home() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
@@ -13,6 +14,7 @@ export default function Home() {
   let logoutTimeout = null
   const [sidebarWidth, setSidebarWidth] = useState(256)
   const [isResizingSidebar, setIsResizingSidebar] = useState(false)
+  const [showCameraDetection, setShowCameraDetection] = useState(false)
   
   const [activeModal, setActiveModal] = useState(null)
   const [oldPassword, setOldPassword] = useState('')
@@ -30,6 +32,21 @@ export default function Home() {
     const token = localStorage.getItem('token')
     if (token && !user) {
       getCurrentUser()
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleOpenCameraDetection = () => {
+      setShowCameraDetection(true)
+    }
+    const handleCloseCameraDetection = () => {
+      setShowCameraDetection(false)
+    }
+    window.addEventListener('openCameraDetection', handleOpenCameraDetection)
+    window.addEventListener('closeCameraDetection', handleCloseCameraDetection)
+    return () => {
+      window.removeEventListener('openCameraDetection', handleOpenCameraDetection)
+      window.removeEventListener('closeCameraDetection', handleCloseCameraDetection)
     }
   }, [])
 
@@ -74,106 +91,112 @@ export default function Home() {
         onMouseDown={handleSidebarMouseDown}
       />
 
-      <div className="flex-1 flex flex-col min-w-0 chat-container">
-        <div className="bg-dark-800 border-b border-dark-600">
-          <div className="h-12 flex items-center justify-between px-4">
-            <div className="flex-1 flex items-center">
-              <ConversationTabs onCreateConversation={handleCreateConversation} />
-            </div>
+      {showCameraDetection ? (
+        <div className="flex-1 min-w-0">
+          <CameraDetection />
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col min-w-0 chat-container">
+          <div className="bg-dark-800 border-b border-dark-600">
+            <div className="h-12 flex items-center justify-between px-4">
+              <div className="flex-1 flex items-center">
+                <ConversationTabs onCreateConversation={handleCreateConversation} />
+              </div>
 
-            <div className="flex items-center gap-3">
-              {!user && (
-                <button
-                  onClick={() => setIsLoginModalOpen(true)}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-accent-500 to-accent-600 text-white font-medium hover:opacity-90 transition-opacity"
-                >
-                  Login
-                </button>
-              )}
+              <div className="flex items-center gap-3">
+                {!user && (
+                  <button
+                    onClick={() => setIsLoginModalOpen(true)}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-accent-500 to-accent-600 text-white font-medium hover:opacity-90 transition-opacity"
+                  >
+                    Login
+                  </button>
+                )}
 
-              {user && (
-                <div className="relative" onMouseEnter={() => {
-                  clearTimeout(logoutTimeout)
-                  setShowLogout(true)
-                }} onMouseLeave={() => {
-                  logoutTimeout = setTimeout(() => setShowLogout(false), 500)
-                }}>
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <button className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-500 to-accent-600 flex items-center justify-center text-white">
-                        {user.avatar ? (
-                          <img src={user.avatar} alt="Avatar" className="w-full h-full rounded-xl object-cover" />
-                        ) : (
-                          <User className="w-5 h-5" />
-                        )}
-                      </button>
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-dark-800" />
+                {user && (
+                  <div className="relative" onMouseEnter={() => {
+                    clearTimeout(logoutTimeout)
+                    setShowLogout(true)
+                  }} onMouseLeave={() => {
+                    logoutTimeout = setTimeout(() => setShowLogout(false), 500)
+                  }}>
+                    <div className="flex items-center gap-3">
+                      <div className="relative">
+                        <button className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-500 to-accent-600 flex items-center justify-center text-white">
+                          {user.avatar ? (
+                            <img src={user.avatar} alt="Avatar" className="w-full h-full rounded-xl object-cover" />
+                          ) : (
+                            <User className="w-5 h-5" />
+                          )}
+                        </button>
+                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-dark-800" />
+                      </div>
+                      <div className="hidden md:block">
+                        <p className="text-sm font-medium text-white">{user.name}</p>
+                        <p className="text-xs text-dark-400">{user.email}</p>
+                      </div>
                     </div>
-                    <div className="hidden md:block">
-                      <p className="text-sm font-medium text-white">{user.name}</p>
-                      <p className="text-xs text-dark-400">{user.email}</p>
-                    </div>
+
+                    {showLogout && (
+                      <div className="absolute right-0 top-full mt-2 w-48 bg-dark-700 rounded-xl border border-dark-600 shadow-lg py-2 animate-fadeIn z-50">
+                        <button
+                          onClick={toggleTheme}
+                          className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
+                        >
+                          {theme === 'dark' ? (
+                            <>
+                              <Sun className="w-3.5 h-3.5" />
+                              <span>切换日间模式</span>
+                            </>
+                          ) : (
+                            <>
+                              <Moon className="w-3.5 h-3.5" />
+                              <span>切换夜间模式</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => { setActiveModal('password'); setShowLogout(false) }}
+                          className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
+                        >
+                          <Lock className="w-3.5 h-3.5" />
+                          <span>修改密码</span>
+                        </button>
+                        <button
+                          onClick={() => { setActiveModal('email'); setShowLogout(false) }}
+                          className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                          <span>修改邮箱</span>
+                        </button>
+                        <button
+                          onClick={() => { setActiveModal('avatar'); setShowLogout(false) }}
+                          className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>上传头像</span>
+                        </button>
+                        <div className="border-t border-dark-600 my-1" />
+                        <button
+                          onClick={logout}
+                          className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
+                        >
+                          <LogOut className="w-3.5 h-3.5" />
+                          <span>退出账户</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
-
-                  {showLogout && (
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-dark-700 rounded-xl border border-dark-600 shadow-lg py-2 animate-fadeIn z-50">
-                      <button
-                        onClick={toggleTheme}
-                        className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
-                      >
-                        {theme === 'dark' ? (
-                          <>
-                            <Sun className="w-3.5 h-3.5" />
-                            <span>切换日间模式</span>
-                          </>
-                        ) : (
-                          <>
-                            <Moon className="w-3.5 h-3.5" />
-                            <span>切换夜间模式</span>
-                          </>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => { setActiveModal('password'); setShowLogout(false) }}
-                        className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
-                      >
-                        <Lock className="w-3.5 h-3.5" />
-                        <span>修改密码</span>
-                      </button>
-                      <button
-                        onClick={() => { setActiveModal('email'); setShowLogout(false) }}
-                        className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
-                      >
-                        <Mail className="w-3.5 h-3.5" />
-                        <span>修改邮箱</span>
-                      </button>
-                      <button
-                        onClick={() => { setActiveModal('avatar'); setShowLogout(false) }}
-                        className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
-                      >
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>上传头像</span>
-                      </button>
-                      <div className="border-t border-dark-600 my-1" />
-                      <button
-                        onClick={logout}
-                        className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
-                      >
-                        <LogOut className="w-3.5 h-3.5" />
-                        <span>退出账户</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
+
+          <ChatArea />
+
+          <ChatInput />
         </div>
-
-        <ChatArea />
-
-        <ChatInput />
-      </div>
+      )}
 
       <LoginModal
         isOpen={isLoginModalOpen}

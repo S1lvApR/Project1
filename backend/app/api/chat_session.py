@@ -2,8 +2,14 @@ import os
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import List, Dict, Optional
+
+class MessageRequest(BaseModel):
+    role: str
+    content: str
+    video_result: Optional[Dict] = None
 
 from app.database.session import get_db
 from app.api.auth import get_current_user
@@ -62,8 +68,7 @@ async def get_session_detail(
 @router.post("/{session_uuid}/messages")
 async def add_message(
     session_uuid: str,
-    role: str,
-    content: str,
+    request_data: MessageRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -71,7 +76,10 @@ async def add_message(
     if not session or session.user_id != current_user.id:
         return {"success": False, "message": "会话不存在或无权访问"}
     
-    message = ChatSessionService.add_message(db, session.id, role, content, user=current_user)
+    message = ChatSessionService.add_message(
+        db, session.id, request_data.role, request_data.content, 
+        user=current_user, video_result=request_data.video_result
+    )
     return {
         "success": True,
         "data": ChatSessionService.convert_message_to_dict(message) if message else None,
@@ -112,8 +120,6 @@ async def delete_session(
         "message": "删除成功" if success else "删除失败",
     }
 
-
-from pydantic import BaseModel
 
 class ChatRequest(BaseModel):
     content: str

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bot, MessageSquare, History, ChevronRight, Sparkles, Pin, Trash2 } from 'lucide-react'
+import { Bot, MessageSquare, History, ChevronRight, Sparkles, Pin, Trash2, Camera } from 'lucide-react'
 import { useStore } from '../store/useStore'
 
 const formatTime = (date) => {
@@ -50,6 +50,18 @@ export function LeftSidebar({ onCreateConversation, style }) {
         >
           <Bot className="flex-shrink-0" style={{ width: `${Math.round(20 * scale)}px`, height: `${Math.round(20 * scale)}px` }} />
           <span className="flex-shrink-0">New Chat</span>
+        </button>
+        <button
+          onClick={() => window.dispatchEvent(new CustomEvent('openCameraDetection'))}
+          className="w-full flex items-center rounded-xl bg-dark-700 hover:bg-dark-600 transition-colors text-white font-medium mt-3"
+          style={{ 
+            gap: `${Math.round(12 * scale)}px`, 
+            padding: `${Math.round(12 * scale)}px ${Math.round(16 * scale)}px`,
+            fontSize: `${Math.round(14 * scale)}px`
+          }}
+        >
+          <Camera className="flex-shrink-0" style={{ width: `${Math.round(20 * scale)}px`, height: `${Math.round(20 * scale)}px` }} />
+          <span className="flex-shrink-0">摄像头检测</span>
         </button>
       </div>
 

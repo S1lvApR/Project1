@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { Bot, User, Sparkles, Upload, FolderOpen, Loader2, Image } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import { VideoResultCard } from './VideoResultCard'
 
 export function ChatArea() {
   const { conversations, activeConversationId, user, recognizeSigns, recognizeVideo, loading } = useStore()
@@ -257,6 +258,9 @@ export function ChatArea() {
                         </div>
                       ))}
                     </div>
+                  )}
+                  {message.videoResult && (
+                    <VideoResultCard results={message.videoResult} />
                   )}
                 </div>
               )}

@@ -55,45 +55,12 @@ const formatSignResult = (data) => {
 const formatVideoResult = (data) => {
   if (!data) return "视频检测完成";
 
-  let result = `视频检测完成\n\n`;
-  result += `视频总帧数：${data.total_frames}\n`;
-  result += `提取帧数：${data.extracted_frames}\n`;
-  result += `帧间隔：${data.frame_interval}帧\n`;
-  result += `视频时长：${data.duration?.toFixed(2) || 0}秒\n\n`;
-
-  if (data.total_signs > 0) {
-    result += `🚦 识别到交通标志（共 ${data.total_signs} 个）\n`;
-  }
-  if (data.total_lights > 0) {
-    result += `🔴 识别到交通信号灯（共 ${data.total_lights} 个）\n`;
-  }
-
-  if (data.total_signs === 0 && data.total_lights === 0) {
-    result += "\n未识别到交通标志和信号灯";
+  let result = "视频检测完成\n\n";
+  
+  if (data.total_signs > 0 || data.total_lights > 0) {
+    result += `识别到 🚦交通标志 ${data.total_signs} 个，🔴交通信号灯 ${data.total_lights} 个`;
   } else {
-    result += "\n检测详情：\n";
-    data.results?.forEach((frameResult, index) => {
-      const hasSigns = frameResult.traffic_signs && frameResult.traffic_signs.length > 0;
-      const hasLights = frameResult.traffic_lights && frameResult.traffic_lights.length > 0;
-      
-      if (hasSigns || hasLights) {
-        const timestamp = frameResult.timestamp?.toFixed(2) || 0;
-        result += `\n第 ${index + 1} 帧（${timestamp}秒）：\n`;
-        
-        if (hasSigns) {
-          frameResult.traffic_signs.forEach((sign) => {
-            result += `  - ${sign.type}：${sign.value || "无"}，置信度 ${sign.confidence}%\n`;
-          });
-        }
-        
-        if (hasLights) {
-          frameResult.traffic_lights.forEach((light) => {
-            const statusText = { red: "红灯", green: "绿灯", yellow: "黄灯" };
-            result += `  - 信号灯：${statusText[light.status] || light.status}，置信度 ${light.confidence}%\n`;
-          });
-        }
-      }
-    });
+    result += "未识别到交通标志和信号灯";
   }
 
   return result;
@@ -328,14 +295,19 @@ export const useStore = create((set, get) => ({
     }
   },
 
-  saveMessage: async (conversationId, role, content) => {
+  saveMessage: async (conversationId, role, content, videoResult = null) => {
     const conv = get().conversations.find((c) => c.id === conversationId);
     if (!conv || !conv.persisted) return null;
     try {
+      const body = { role, content };
+      if (videoResult) {
+        body.video_result = videoResult;
+      }
       const response = await request(
-        `/chat-sessions/${conversationId}/messages?role=${encodeURIComponent(role)}&content=${encodeURIComponent(content)}`,
+        `/chat-sessions/${conversationId}/messages`,
         {
           method: "POST",
+          body: JSON.stringify(body),
         },
       );
       return response;
@@ -602,6 +574,8 @@ export const useStore = create((set, get) => ({
                                 content: resultContent,
                                 type: "text",
                                 videoProgress: null,
+                                videoUrl: results?.annotated_video_url || null,
+                                videoResult: results,
                               }
                             : msg
                         ),
@@ -609,7 +583,7 @@ export const useStore = create((set, get) => ({
                     : c,
                 ),
               }));
-              await get().saveMessage(conversationId, "assistant", resultContent);
+              await get().saveMessage(conversationId, "assistant", resultContent, results);
             } else if (status === "failed") {
               set((state) => ({
                 conversations: state.conversations.map((c) =>

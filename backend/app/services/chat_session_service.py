@@ -44,7 +44,7 @@ class ChatSessionService:
         return session
 
     @staticmethod
-    def add_message(db: Session, session_id: int, role: str, content: str, message_type: str = "text", user=None, image_url: str = None) -> ChatMessage:
+    def add_message(db: Session, session_id: int, role: str, content: str, message_type: str = "text", user=None, image_url: str = None, video_result: dict = None) -> ChatMessage:
         session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
         if not session:
             return None
@@ -77,11 +77,20 @@ class ChatSessionService:
             db.refresh(message)
             return message
 
+        if video_result and isinstance(video_result, dict):
+            video_result = video_result.copy()
+            if "key_frames" in video_result:
+                video_result["key_frames"] = [
+                    {k: v for k, v in frame.items() if k != "annotated_image_base64"}
+                    for frame in video_result["key_frames"]
+                ]
+
         message = ChatMessage(
             session_id=session_id,
             role=role,
             content=content,
             image_url=image_url,
+            video_result=video_result,
         )
         db.add(message)
         
@@ -190,6 +199,8 @@ class ChatSessionService:
                 }
                 if msg.image_url:
                     message_dict["images"] = [{ "url": msg.image_url, "name": "image" }]
+                if msg.video_result:
+                    message_dict["videoResult"] = msg.video_result
                 messages.append(message_dict)
         
         return {
@@ -212,4 +223,6 @@ class ChatSessionService:
         }
         if message.image_url:
             result["images"] = [{ "url": message.image_url, "name": "image" }]
+        if message.video_result:
+            result["videoResult"] = message.video_result
         return result

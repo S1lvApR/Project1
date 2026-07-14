@@ -448,6 +448,7 @@ class ChatMessage(Base):
     )
     content = Column(Text, nullable=False, comment="消息内容")
     image_url = Column(String(500), nullable=True, comment="图片URL")
+    video_result = Column(JSON, nullable=True, comment="视频检测结果")
     # 智能体路由信息
     agent_used = Column(
         String(50),
