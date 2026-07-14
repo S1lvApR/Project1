@@ -3,7 +3,7 @@ import { Bot, User, Sparkles, Upload, FolderOpen, Loader2, Image } from 'lucide-
 import { useStore } from '../store/useStore'
 
 export function ChatArea() {
-  const { conversations, activeConversationId, user, recognizeSigns, loading } = useStore()
+  const { conversations, activeConversationId, user, recognizeSigns, recognizeVideo, loading } = useStore()
   const messagesEndRef = useRef(null)
   const [uploadingMessageId, setUploadingMessageId] = useState(null)
 
@@ -19,27 +19,23 @@ export function ChatArea() {
     const files = Array.from(e.target.files)
     if (files.length === 0) return
 
-    const validFiles = files.filter(file => 
-      file.type.startsWith('image/') || file.name.toLowerCase().endsWith('.zip')
+    const imageFiles = files.filter(file => 
+      file.type.startsWith('image/') || 
+      file.name.toLowerCase().endsWith('.zip')
     )
-    if (validFiles.length === 0) return
+    const videoFiles = files.filter(file => file.type.startsWith('video/'))
 
-    setUploadingMessageId(conversationId)
-    await recognizeSigns(conversationId, validFiles)
-    setUploadingMessageId(null)
-  }, [recognizeSigns])
+    if (videoFiles.length > 0) {
+      await recognizeVideo(conversationId, videoFiles[0])
+      return
+    }
 
-  const handleSignFolderUpload = useCallback(async (e, conversationId) => {
-    const files = Array.from(e.target.files)
-    if (files.length === 0) return
-
-    const imageFiles = files.filter(file => file.type.startsWith('image/'))
     if (imageFiles.length === 0) return
 
     setUploadingMessageId(conversationId)
     await recognizeSigns(conversationId, imageFiles)
     setUploadingMessageId(null)
-  }, [recognizeSigns])
+  }, [recognizeSigns, recognizeVideo])
 
   
 
@@ -67,7 +63,7 @@ export function ChatArea() {
           </button>
 
           <button
-            onClick={() => document.getElementById(`sign-folder-upload-${conversationId}`)?.click()}
+            onClick={() => document.getElementById(`sign-batch-upload-${conversationId}`)?.click()}
             disabled={isUploading}
             className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-dashed border-dark-500 hover:border-accent-500 hover:bg-dark-600 transition-all group disabled:opacity-50"
           >
@@ -78,12 +74,12 @@ export function ChatArea() {
                 <FolderOpen className="w-6 h-6 text-accent-500" />
               )}
             </div>
-            <span className="text-white font-medium">选择文件夹</span>
-            <span className="text-dark-500 text-sm mt-1">批量读取图片</span>
+            <span className="text-white font-medium">批量上传</span>
+            <span className="text-dark-500 text-sm mt-1">文件夹或ZIP压缩包</span>
           </button>
 
           <button
-            onClick={() => document.getElementById(`sign-zip-upload-${conversationId}`)?.click()}
+            onClick={() => document.getElementById(`sign-video-upload-${conversationId}`)?.click()}
             disabled={isUploading}
             className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-dashed border-dark-500 hover:border-accent-500 hover:bg-dark-600 transition-all group disabled:opacity-50"
           >
@@ -91,11 +87,11 @@ export function ChatArea() {
               {isUploading ? (
                 <Loader2 className="w-6 h-6 text-accent-500 animate-spin" />
               ) : (
-                <span className="text-accent-500 text-lg">📦</span>
+                <span className="text-accent-500 text-lg">🎬</span>
               )}
             </div>
-            <span className="text-white font-medium">上传ZIP</span>
-            <span className="text-dark-500 text-sm mt-1">压缩包批量识别</span>
+            <span className="text-white font-medium">视频检测</span>
+            <span className="text-dark-500 text-sm mt-1">支持 MP4、AVI、MOV</span>
           </button>
         </div>
 
@@ -109,20 +105,20 @@ export function ChatArea() {
         />
 
         <input
-          id={`sign-folder-upload-${conversationId}`}
+          id={`sign-batch-upload-${conversationId}`}
           type="file"
           multiple
           webkitdirectory="true"
           directory="true"
-          accept="image/*"
-          onChange={(e) => handleSignFolderUpload(e, conversationId)}
+          accept="image/*,.zip"
+          onChange={(e) => handleSignImageUpload(e, conversationId)}
           className="hidden"
         />
 
         <input
-          id={`sign-zip-upload-${conversationId}`}
+          id={`sign-video-upload-${conversationId}`}
           type="file"
-          accept=".zip"
+          accept="video/*"
           onChange={(e) => handleSignImageUpload(e, conversationId)}
           className="hidden"
         />
@@ -205,6 +201,30 @@ export function ChatArea() {
                     </p>
                   </div>
                   {renderSignUploadCard(message.conversationId)}
+                </div>
+              ) : message.type === 'video_progress' && message.videoProgress ? (
+                <div className="max-w-[75%]">
+                  <div className="p-4 rounded-2xl bg-dark-800 text-white rounded-bl-md">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Loader2 className="w-4 h-4 text-accent-500 animate-spin" />
+                      <span className="text-sm text-accent-500">视频检测中...</span>
+                    </div>
+                    <div className="mb-2">
+                      <div className="flex justify-between text-xs text-dark-400 mb-1">
+                        <span>进度</span>
+                        <span>{message.videoProgress.progress}%</span>
+                      </div>
+                      <div className="w-full bg-dark-600 rounded-full h-2">
+                        <div
+                          className="bg-accent-500 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${message.videoProgress.progress}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="text-xs text-dark-400">
+                      已处理 {message.videoProgress.processedFrames || 0} 帧 / 共 {message.videoProgress.totalFrames || '未知'} 帧
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div

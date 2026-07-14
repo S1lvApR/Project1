@@ -52,6 +52,53 @@ const formatSignResult = (data) => {
   return result;
 };
 
+const formatVideoResult = (data) => {
+  if (!data) return "视频检测完成";
+
+  let result = `视频检测完成\n\n`;
+  result += `视频总帧数：${data.total_frames}\n`;
+  result += `提取帧数：${data.extracted_frames}\n`;
+  result += `帧间隔：${data.frame_interval}帧\n`;
+  result += `视频时长：${data.duration?.toFixed(2) || 0}秒\n\n`;
+
+  if (data.total_signs > 0) {
+    result += `🚦 识别到交通标志（共 ${data.total_signs} 个）\n`;
+  }
+  if (data.total_lights > 0) {
+    result += `🔴 识别到交通信号灯（共 ${data.total_lights} 个）\n`;
+  }
+
+  if (data.total_signs === 0 && data.total_lights === 0) {
+    result += "\n未识别到交通标志和信号灯";
+  } else {
+    result += "\n检测详情：\n";
+    data.results?.forEach((frameResult, index) => {
+      const hasSigns = frameResult.traffic_signs && frameResult.traffic_signs.length > 0;
+      const hasLights = frameResult.traffic_lights && frameResult.traffic_lights.length > 0;
+      
+      if (hasSigns || hasLights) {
+        const timestamp = frameResult.timestamp?.toFixed(2) || 0;
+        result += `\n第 ${index + 1} 帧（${timestamp}秒）：\n`;
+        
+        if (hasSigns) {
+          frameResult.traffic_signs.forEach((sign) => {
+            result += `  - ${sign.type}：${sign.value || "无"}，置信度 ${sign.confidence}%\n`;
+          });
+        }
+        
+        if (hasLights) {
+          frameResult.traffic_lights.forEach((light) => {
+            const statusText = { red: "红灯", green: "绿灯", yellow: "黄灯" };
+            result += `  - 信号灯：${statusText[light.status] || light.status}，置信度 ${light.confidence}%\n`;
+          });
+        }
+      }
+    });
+  }
+
+  return result;
+};
+
 const getToken = () => {
   return localStorage.getItem("token");
 };
@@ -452,6 +499,151 @@ export const useStore = create((set, get) => ({
       throw error;
     } finally {
       get().setLoading(false);
+    }
+  },
+
+  recognizeVideo: async (conversationId, videoFile) => {
+    get().setError(null);
+    try {
+      conversationId = await get().ensureConversationPersisted(conversationId);
+      const formData = new FormData();
+      formData.append("video", videoFile);
+
+      const data = await requestFormData("/video-detection/analyze", {
+        method: "POST",
+        body: formData,
+      });
+
+      const taskId = data.task_id;
+      const progressMessageId = Date.now().toString();
+
+      set((state) => ({
+        conversations: state.conversations.map((c) =>
+          c.id === conversationId
+            ? {
+                ...c,
+                title:
+                  c.messages.length === 0 ? "视频检测" : c.title,
+                messages: [
+                  ...c.messages,
+                  {
+                    id: (Date.now() - 1).toString(),
+                    conversationId,
+                    role: "user",
+                    content: `上传了视频：${videoFile.name}`,
+                    createdAt: new Date(),
+                  },
+                  {
+                    id: progressMessageId,
+                    conversationId,
+                    role: "assistant",
+                    content: "",
+                    createdAt: new Date(),
+                    type: "video_progress",
+                    videoProgress: {
+                      taskId,
+                      status: "processing",
+                      progress: 0,
+                      totalFrames: 0,
+                      processedFrames: 0,
+                      results: null,
+                    },
+                  },
+                ],
+              }
+            : c,
+        ),
+      }));
+
+      const pollProgress = async () => {
+        try {
+          const progressData = await request(`/video-detection/${taskId}/progress`);
+          if (progressData.success && progressData.data) {
+            const { status, progress, total_frames, processed_frames, results } = progressData.data;
+            
+            set((state) => ({
+              conversations: state.conversations.map((c) =>
+                c.id === conversationId
+                  ? {
+                      ...c,
+                      messages: c.messages.map((msg) =>
+                        msg.id === progressMessageId
+                          ? {
+                              ...msg,
+                              videoProgress: {
+                                taskId,
+                                status,
+                                progress,
+                                totalFrames: total_frames,
+                                processedFrames: processed_frames,
+                                results,
+                              },
+                            }
+                          : msg
+                      ),
+                    }
+                  : c,
+              ),
+            }));
+
+            if (status === "processing") {
+              setTimeout(pollProgress, 2000);
+            } else if (status === "completed") {
+              const resultContent = formatVideoResult(results);
+              set((state) => ({
+                conversations: state.conversations.map((c) =>
+                  c.id === conversationId
+                    ? {
+                        ...c,
+                        messages: c.messages.map((msg) =>
+                          msg.id === progressMessageId
+                            ? {
+                                ...msg,
+                                content: resultContent,
+                                type: "text",
+                                videoProgress: null,
+                              }
+                            : msg
+                        ),
+                      }
+                    : c,
+                ),
+              }));
+              await get().saveMessage(conversationId, "assistant", resultContent);
+            } else if (status === "failed") {
+              set((state) => ({
+                conversations: state.conversations.map((c) =>
+                  c.id === conversationId
+                    ? {
+                        ...c,
+                        messages: c.messages.map((msg) =>
+                          msg.id === progressMessageId
+                            ? {
+                                ...msg,
+                                content: `视频检测失败：${results.error || '未知错误'}`,
+                                type: "text",
+                                videoProgress: null,
+                              }
+                            : msg
+                        ),
+                      }
+                    : c,
+                ),
+              }));
+            }
+          }
+        } catch (error) {
+          console.error("视频检测进度查询失败:", error);
+          setTimeout(pollProgress, 3000);
+        }
+      };
+
+      setTimeout(pollProgress, 1000);
+
+      return data;
+    } catch (error) {
+      get().setError(error.message);
+      throw error;
     }
   },
 
