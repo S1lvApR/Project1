@@ -15,6 +15,7 @@ downloads/
 eggs/
 .eggs/
 lib/
+!/scripts/lib/
 lib64/
 parts/
 sdist/
@@ -75,6 +76,7 @@ logs/
 
 # ── 数据文件 ────────────────────────────────────────
 backend/datasets/
+backend/data/video_status/
 *.csv
 *.xlsx
 *.parquet
@@ -102,7 +104,6 @@ yarn-debug.log*
 yarn-error.log*
 .npm
 .yarn
-package-lock.json
 yarn.lock
 
 # 前端构建产物
@@ -120,6 +121,7 @@ build/
 # ── 测试覆盖率 ───────────────────────────────────────
 .coverage
 .pytest_cache/
+.playwright-cli/
 htmlcov/
 .tox/
 .hypothesis/
@@ -153,3 +155,21 @@ $RECYCLE.BIN/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Local training data and outputs
+training/raw/
+training/datasets/
+training/runs/
+
+# Local git worktrees
+.worktrees/
+
+# Local runtime and publication-excluded assets
+/.runtime/
+/models/
+/.codex-tmp-*
+/backend-*.log
+/frontend-*.log
+/Train.tar
+/qq_3045834499/
+/*.zip

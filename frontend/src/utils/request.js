@@ -1,91 +1,100 @@
-/**
- * Axios 请求封装
- * - 统一 baseURL 配置
- * - 请求拦截器：自动注入 JWT Token
- * - 响应拦截器：统一错误处理、Token 过期处理
- */
-import router from "@/router";
-import { useUserStore } from "@/stores/user";
-import axios from "axios";
-import { ElMessage } from "element-plus";
+const BASE_URL = "/api";
+const DEFAULT_TIMEOUT = 30000;
+const DEFAULT_HEADERS = {
+  "Content-Type": "application/json",
+};
 
-// ── 创建 Axios 实例 ──────────────────────────────────
-const request = axios.create({
-  baseURL: "/api", // 配合 Vite proxy，实际请求转发到后端
-  timeout: 30000, // 请求超时 30 秒
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
+function buildUrl(url) {
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  return `${BASE_URL}${url.startsWith("/") ? url : `/${url}`}`;
+}
 
-// ── 请求拦截器 ──────────────────────────────────────
-request.interceptors.request.use(
-  (config) => {
-    // 从 Pinia store 获取 Token，自动注入请求头
-    const userStore = useUserStore();
-    if (userStore.token) {
-      config.headers.Authorization = `Bearer ${userStore.token}`;
+function getToken() {
+  return localStorage.getItem("access_token") || localStorage.getItem("token");
+}
+
+function getErrorMessage(status, payload) {
+  if (payload?.detail) {
+    if (Array.isArray(payload.detail)) {
+      return payload.detail[0]?.msg || "Request validation failed";
     }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  },
-);
+    return payload.detail;
+  }
+  return `Request failed (${status})`;
+}
 
-// ── 响应拦截器 ──────────────────────────────────────
-request.interceptors.response.use(
-  (response) => {
-    // 请求成功，直接返回响应数据
-    return response.data;
-  },
-  (error) => {
-    const { response } = error;
+async function parseResponse(response) {
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return response.json();
+  }
+  return response.text();
+}
 
-    if (response) {
-      switch (response.status) {
-        case 401:
-          // Token 过期或无效，清除用户信息并跳转登录页
-          ElMessage.error("登录已过期，请重新登录");
-          const userStore = useUserStore();
-          userStore.logout();
-          router.push("/login");
-          break;
+async function send(method, url, data, options = {}) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), options.timeout ?? DEFAULT_TIMEOUT);
+  const isFormData = typeof FormData !== "undefined" && data instanceof FormData;
+  const headers = {
+    ...DEFAULT_HEADERS,
+    ...options.headers,
+  };
 
-        case 403:
-          ElMessage.error("没有权限执行此操作");
-          break;
+  if (isFormData) {
+    delete headers["Content-Type"];
+  }
 
-        case 404:
-          ElMessage.error("请求的资源不存在");
-          break;
+  const token = getToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
 
-        case 422:
-          // Pydantic 验证错误
-          const detail = response.data?.detail;
-          if (Array.isArray(detail)) {
-            ElMessage.error(detail[0]?.msg || "参数验证失败");
-          } else {
-            ElMessage.error(detail || "参数验证失败");
-          }
-          break;
+  try {
+    const response = await fetch(buildUrl(url), {
+      ...options,
+      method,
+      headers,
+      signal: options.signal || controller.signal,
+      body: data === undefined ? undefined : isFormData ? data : JSON.stringify(data),
+    });
+    const payload = await parseResponse(response);
 
-        case 500:
-          ElMessage.error("服务器内部错误");
-          break;
-
-        default:
-          ElMessage.error(
-            response.data?.detail || `请求失败 (${response.status})`,
-          );
-      }
-    } else {
-      // 网络错误或请求超时
-      ElMessage.error("网络连接异常，请检查后端服务是否启动");
+    if (!response.ok) {
+      const error = new Error(getErrorMessage(response.status, payload));
+      error.response = {
+        status: response.status,
+        data: payload,
+      };
+      throw error;
     }
 
-    return Promise.reject(error);
+    return payload;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+const request = {
+  defaults: {
+    baseURL: BASE_URL,
+    timeout: DEFAULT_TIMEOUT,
+    headers: DEFAULT_HEADERS,
   },
-);
+  get(url, options) {
+    return send("GET", url, undefined, options);
+  },
+  post(url, data, options) {
+    return send("POST", url, data, options);
+  },
+  put(url, data, options) {
+    return send("PUT", url, data, options);
+  },
+  delete(url, options) {
+    return send("DELETE", url, undefined, options);
+  },
+  request: send,
+};
 
 export default request;

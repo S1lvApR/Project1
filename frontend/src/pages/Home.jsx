@@ -1,20 +1,22 @@
-import { useState, useEffect } from 'react'
-import { User, LogOut, Sun, Moon, Mail, Lock, Upload, X, Check } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { User, LogOut, Sun, Moon, Mail, Lock, Upload, X, Camera } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { LeftSidebar } from '../components/LeftSidebar'
 import { ConversationTabs } from '../components/ConversationTabs'
 import { ChatArea } from '../components/ChatArea'
 import { ChatInput } from '../components/ChatInput'
 import { LoginModal } from '../components/LoginModal'
-import { CameraDetection } from '../components/CameraDetection'
 
 export default function Home() {
+  const navigate = useNavigate()
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
   const [showLogout, setShowLogout] = useState(false)
-  let logoutTimeout = null
+  const logoutTimeout = useRef(null)
   const [sidebarWidth, setSidebarWidth] = useState(256)
+  const [chatInputHeight, setChatInputHeight] = useState(180)
   const [isResizingSidebar, setIsResizingSidebar] = useState(false)
-  const [showCameraDetection, setShowCameraDetection] = useState(false)
+  const [isResizingInput, setIsResizingInput] = useState(false)
   
   const [activeModal, setActiveModal] = useState(null)
   const [oldPassword, setOldPassword] = useState('')
@@ -33,22 +35,7 @@ export default function Home() {
     if (token && !user) {
       getCurrentUser()
     }
-  }, [])
-
-  useEffect(() => {
-    const handleOpenCameraDetection = () => {
-      setShowCameraDetection(true)
-    }
-    const handleCloseCameraDetection = () => {
-      setShowCameraDetection(false)
-    }
-    window.addEventListener('openCameraDetection', handleOpenCameraDetection)
-    window.addEventListener('closeCameraDetection', handleCloseCameraDetection)
-    return () => {
-      window.removeEventListener('openCameraDetection', handleOpenCameraDetection)
-      window.removeEventListener('closeCameraDetection', handleCloseCameraDetection)
-    }
-  }, [])
+  }, [getCurrentUser, user])
 
   const handleCreateConversation = async () => {
     await addConversation()
@@ -59,19 +46,32 @@ export default function Home() {
     setIsResizingSidebar(true)
   }
 
+  const handleInputMouseDown = (e) => {
+    e.preventDefault()
+    setIsResizingInput(true)
+  }
+
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (isResizingSidebar) {
         const newWidth = Math.max(200, Math.min(500, e.clientX))
         setSidebarWidth(newWidth)
       }
+      if (isResizingInput) {
+        const containerRect = document.querySelector('.chat-container')?.getBoundingClientRect()
+        if (containerRect) {
+          const newHeight = Math.max(140, Math.min(400, containerRect.bottom - e.clientY))
+          setChatInputHeight(newHeight)
+        }
+      }
     }
 
     const handleMouseUp = () => {
       setIsResizingSidebar(false)
+      setIsResizingInput(false)
     }
 
-    if (isResizingSidebar) {
+    if (isResizingSidebar || isResizingInput) {
       document.addEventListener('mousemove', handleMouseMove)
       document.addEventListener('mouseup', handleMouseUp)
     }
@@ -80,7 +80,7 @@ export default function Home() {
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isResizingSidebar])
+  }, [isResizingSidebar, isResizingInput])
 
   return (
     <div className={`flex h-screen bg-dark-900 ${theme === 'light' ? 'theme-light' : ''}`}>
@@ -91,112 +91,118 @@ export default function Home() {
         onMouseDown={handleSidebarMouseDown}
       />
 
-      {showCameraDetection ? (
-        <div className="flex-1 min-w-0">
-          <CameraDetection />
-        </div>
-      ) : (
-        <div className="flex-1 flex flex-col min-w-0 chat-container">
-          <div className="bg-dark-800 border-b border-dark-600">
-            <div className="h-12 flex items-center justify-between px-4">
-              <div className="flex-1 flex items-center">
-                <ConversationTabs onCreateConversation={handleCreateConversation} />
-              </div>
+      <div className="flex-1 flex flex-col min-w-0 chat-container">
+        <div className="bg-dark-800 border-b border-dark-600">
+          <div className="h-12 flex items-center justify-between px-4">
+            <div className="flex-1 flex items-center">
+              <ConversationTabs onCreateConversation={handleCreateConversation} />
+            </div>
 
-              <div className="flex items-center gap-3">
-                {!user && (
-                  <button
-                    onClick={() => setIsLoginModalOpen(true)}
-                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-accent-500 to-accent-600 text-white font-medium hover:opacity-90 transition-opacity"
-                  >
-                    Login
-                  </button>
-                )}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate('/camera')}
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-dark-700 text-dark-300 transition-colors hover:bg-dark-600 hover:text-white"
+                title="摄像头实时检测"
+              >
+                <Camera className="h-4 w-4" />
+              </button>
+              {!user && (
+                <button
+                  onClick={() => setIsLoginModalOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-accent-500 to-accent-600 text-white font-medium hover:opacity-90 transition-opacity"
+                >
+                  Login
+                </button>
+              )}
 
-                {user && (
-                  <div className="relative" onMouseEnter={() => {
-                    clearTimeout(logoutTimeout)
-                    setShowLogout(true)
-                  }} onMouseLeave={() => {
-                    logoutTimeout = setTimeout(() => setShowLogout(false), 500)
-                  }}>
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <button className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-500 to-accent-600 flex items-center justify-center text-white">
-                          {user.avatar ? (
-                            <img src={user.avatar} alt="Avatar" className="w-full h-full rounded-xl object-cover" />
-                          ) : (
-                            <User className="w-5 h-5" />
-                          )}
-                        </button>
-                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-dark-800" />
-                      </div>
-                      <div className="hidden md:block">
-                        <p className="text-sm font-medium text-white">{user.name}</p>
-                        <p className="text-xs text-dark-400">{user.email}</p>
-                      </div>
+              {user && (
+                <div className="relative" onMouseEnter={() => {
+                  clearTimeout(logoutTimeout.current)
+                  setShowLogout(true)
+                }} onMouseLeave={() => {
+                  logoutTimeout.current = setTimeout(() => setShowLogout(false), 500)
+                }}>
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <button className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-500 to-accent-600 flex items-center justify-center text-white">
+                        {user.avatar ? (
+                          <img src={user.avatar} alt="Avatar" className="w-full h-full rounded-xl object-cover" />
+                        ) : (
+                          <User className="w-5 h-5" />
+                        )}
+                      </button>
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-dark-800" />
                     </div>
-
-                    {showLogout && (
-                      <div className="absolute right-0 top-full mt-2 w-48 bg-dark-700 rounded-xl border border-dark-600 shadow-lg py-2 animate-fadeIn z-50">
-                        <button
-                          onClick={toggleTheme}
-                          className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
-                        >
-                          {theme === 'dark' ? (
-                            <>
-                              <Sun className="w-3.5 h-3.5" />
-                              <span>切换日间模式</span>
-                            </>
-                          ) : (
-                            <>
-                              <Moon className="w-3.5 h-3.5" />
-                              <span>切换夜间模式</span>
-                            </>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => { setActiveModal('password'); setShowLogout(false) }}
-                          className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
-                        >
-                          <Lock className="w-3.5 h-3.5" />
-                          <span>修改密码</span>
-                        </button>
-                        <button
-                          onClick={() => { setActiveModal('email'); setShowLogout(false) }}
-                          className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
-                        >
-                          <Mail className="w-3.5 h-3.5" />
-                          <span>修改邮箱</span>
-                        </button>
-                        <button
-                          onClick={() => { setActiveModal('avatar'); setShowLogout(false) }}
-                          className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
-                        >
-                          <Upload className="w-3.5 h-3.5" />
-                          <span>上传头像</span>
-                        </button>
-                        <div className="border-t border-dark-600 my-1" />
-                        <button
-                          onClick={logout}
-                          className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
-                        >
-                          <LogOut className="w-3.5 h-3.5" />
-                          <span>退出账户</span>
-                        </button>
-                      </div>
-                    )}
+                    <div className="hidden md:block">
+                      <p className="text-sm font-medium text-white">{user.name}</p>
+                      <p className="text-xs text-dark-400">{user.email}</p>
+                    </div>
                   </div>
-                )}
-              </div>
+
+                  {showLogout && (
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-dark-700 rounded-xl border border-dark-600 shadow-lg py-2 animate-fadeIn z-50">
+                      <button
+                        onClick={toggleTheme}
+                        className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
+                      >
+                        {theme === 'dark' ? (
+                          <>
+                            <Sun className="w-3.5 h-3.5" />
+                            <span>切换日间模式</span>
+                          </>
+                        ) : (
+                          <>
+                            <Moon className="w-3.5 h-3.5" />
+                            <span>切换夜间模式</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => { setActiveModal('password'); setShowLogout(false) }}
+                        className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
+                      >
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>修改密码</span>
+                      </button>
+                      <button
+                        onClick={() => { setActiveModal('email'); setShowLogout(false) }}
+                        className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                        <span>修改邮箱</span>
+                      </button>
+                      <button
+                        onClick={() => { setActiveModal('avatar'); setShowLogout(false) }}
+                        className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>上传头像</span>
+                      </button>
+                      <div className="border-t border-dark-600 my-1" />
+                      <button
+                        onClick={logout}
+                        className="w-full flex items-center gap-3 px-4 py-1.5 text-xs text-dark-300 hover:bg-dark-600 hover:text-white transition-colors"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>退出账户</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-
-          <ChatArea />
-
-          <ChatInput />
         </div>
-      )}
+
+        <ChatArea />
+
+        <div
+          className={`h-1 bg-dark-600 cursor-row-resize hover:bg-dark-500 transition-colors ${isResizingInput ? 'bg-accent-500' : ''}`}
+          onMouseDown={handleInputMouseDown}
+        />
+
+        <ChatInput style={{ height: `${chatInputHeight}px` }} />
+      </div>
 
       <LoginModal
         isOpen={isLoginModalOpen}

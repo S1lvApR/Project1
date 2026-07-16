@@ -44,6 +44,8 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False, comment="加密密码")
     phone = Column(String(20), nullable=True, comment="⼿机号")
     avatar = Column(String(500), nullable=True, comment="头像 URL")
+    is_active = Column(Boolean, default=True, comment="是否启⽤")
+    is_superuser = Column(Boolean, default=False, comment="是否超级管理员")
     last_login_at = Column(DateTime, nullable=True, comment="最后登录时间")
     created_at = Column(DateTime, default=datetime.now, comment="创建时间")
     updated_at = Column(
@@ -447,8 +449,6 @@ class ChatMessage(Base):
         String(20), nullable=False, comment="消息⻆⾊：user/assistant/tool/system"
     )
     content = Column(Text, nullable=False, comment="消息内容")
-    image_url = Column(String(500), nullable=True, comment="图片URL")
-    video_result = Column(JSON, nullable=True, comment="视频检测结果")
     # 智能体路由信息
     agent_used = Column(
         String(50),

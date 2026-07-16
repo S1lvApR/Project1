@@ -3,6 +3,7 @@ import io
 from app.config.settings import settings
 from minio import Minio
 from minio.error import S3Error
+import urllib3
 
 
 class MinIOClient:
@@ -14,6 +15,10 @@ class MinIOClient:
             access_key=settings.MINIO_ACCESS_KEY,
             secret_key=settings.MINIO_SECRET_KEY,
             secure=settings.MINIO_SECURE,
+            http_client=urllib3.PoolManager(
+                timeout=urllib3.Timeout(connect=2.0, read=5.0),
+                retries=urllib3.Retry(total=0),
+            ),
         )
         self.bucket_name = settings.MINIO_BUCKET
         self._ensure_bucket()

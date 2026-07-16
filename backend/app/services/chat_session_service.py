@@ -5,7 +5,6 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.entity.db_models import ChatSession, ChatMessage
-from app.services.user_service import user_service
 
 
 class ChatSessionService:
@@ -44,53 +43,15 @@ class ChatSessionService:
         return session
 
     @staticmethod
-    def add_message(db: Session, session_id: int, role: str, content: str, message_type: str = "text", user=None, image_url: str = None, video_result: dict = None) -> ChatMessage:
+    def add_message(db: Session, session_id: int, role: str, content: str, message_type: str = "text") -> ChatMessage:
         session = db.query(ChatSession).filter(ChatSession.id == session_id).first()
         if not session:
             return None
-
-        if role == "user" and user and content.startswith("/"):
-            if not user_service.is_admin(db, user):
-                message = ChatMessage(
-                    session_id=session_id,
-                    role="assistant",
-                    content="无权执行管理员命令",
-                )
-                db.add(message)
-                session.message_count = db.query(ChatMessage).filter(ChatMessage.session_id == session_id).count()
-                session.last_message_at = datetime.now()
-                db.commit()
-                db.refresh(message)
-                return message
-
-            response_content = ChatSessionService._handle_admin_command(db, content.strip())
-
-            message = ChatMessage(
-                session_id=session_id,
-                role="assistant",
-                content=response_content,
-            )
-            db.add(message)
-            session.message_count = db.query(ChatMessage).filter(ChatMessage.session_id == session_id).count()
-            session.last_message_at = datetime.now()
-            db.commit()
-            db.refresh(message)
-            return message
-
-        if video_result and isinstance(video_result, dict):
-            video_result = video_result.copy()
-            if "key_frames" in video_result:
-                video_result["key_frames"] = [
-                    {k: v for k, v in frame.items() if k != "annotated_image_base64"}
-                    for frame in video_result["key_frames"]
-                ]
 
         message = ChatMessage(
             session_id=session_id,
             role=role,
             content=content,
-            image_url=image_url,
-            video_result=video_result,
         )
         db.add(message)
         
@@ -111,59 +72,6 @@ class ChatSessionService:
         db.commit()
         db.refresh(message)
         return message
-
-    @staticmethod
-    def _handle_admin_command(db, command):
-        user_service.seed_admin_permissions(db)
-        
-        if command == "/command":
-            permissions = user_service.get_permissions(db)
-            if not permissions:
-                return "权限表为空"
-            result = "可用管理员命令：\n"
-            for perm in permissions:
-                result += f"• {perm['code']} - {perm['name']}\n  {perm['description']}\n\n"
-            return result.strip()
-        
-        permissions = user_service.get_permissions(db)
-        matched_perm = None
-        for perm in permissions:
-            if command.startswith(perm["code"] + "+"):
-                matched_perm = perm
-                break
-        
-        if matched_perm:
-            cmd_code = matched_perm["code"]
-            if cmd_code == "/gp":
-                username = command[4:].strip()
-                if not username:
-                    return f"请指定要授予权限的账号，格式：{cmd_code}+账号"
-                success = user_service.grant_admin(db, username)
-                return f"已成功授予账号 '{username}' 管理员权限" if success else f"账号 '{username}' 不存在或已是管理员"
-            
-            if cmd_code == "/rp":
-                username = command[4:].strip()
-                if not username:
-                    return f"请指定要收回权限的账号，格式：{cmd_code}+账号"
-                success = user_service.revoke_admin(db, username)
-                if not success:
-                    if username == "111":
-                        return "账号 '111' 的管理员权限不可被收回"
-                    return f"账号 '{username}' 不存在或不是管理员"
-                return f"已成功收回账号 '{username}' 的管理员权限"
-            
-            if cmd_code == "/delete":
-                username = command[8:].strip()
-                if not username:
-                    return f"请指定要删除的账号，格式：{cmd_code}+账号"
-                success = user_service.delete_user(db, username)
-                if not success:
-                    if username == "111":
-                        return "账号 '111' 不可被删除"
-                    return f"账号 '{username}' 不存在"
-                return f"已成功删除账号 '{username}' 及其所有相关信息"
-        
-        return "未知命令"
 
     @staticmethod
     def get_messages_by_session(db: Session, session_id: int, limit: int = 20) -> list[ChatMessage]:
@@ -189,22 +97,18 @@ class ChatSessionService:
         messages = []
         if session.messages:
             for msg in session.messages:
-                message_dict = {
+                messages.append({
                     "id": str(msg.id),
                     "conversationId": session.session_uuid,
                     "role": msg.role,
                     "content": msg.content,
                     "createdAt": msg.created_at.isoformat() if msg.created_at else None,
                     "type": "text",
-                }
-                if msg.image_url:
-                    message_dict["images"] = [{ "url": msg.image_url, "name": "image" }]
-                if msg.video_result:
-                    message_dict["videoResult"] = msg.video_result
-                messages.append(message_dict)
+                })
         
         return {
             "id": session.session_uuid,
+            "session_uuid": session.session_uuid,
             "title": session.title,
             "messages": messages,
             "createdAt": session.created_at.isoformat() if session.created_at else None,
@@ -213,7 +117,7 @@ class ChatSessionService:
 
     @staticmethod
     def convert_message_to_dict(message: ChatMessage) -> dict:
-        result = {
+        return {
             "id": str(message.id),
             "conversationId": message.session.session_uuid,
             "role": message.role,
@@ -221,8 +125,3 @@ class ChatSessionService:
             "createdAt": message.created_at.isoformat() if message.created_at else None,
             "type": "text",
         }
-        if message.image_url:
-            result["images"] = [{ "url": message.image_url, "name": "image" }]
-        if message.video_result:
-            result["videoResult"] = message.video_result
-        return result

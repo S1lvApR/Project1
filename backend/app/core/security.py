@@ -1,8 +1,8 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 import bcrypt
+import jwt
 from app.config.settings import settings
-from jose import jwt
 
 
 def hash_password(password: str) -> str:
@@ -24,16 +24,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(password_bytes, hashed_password.encode("utf-8"))
 
 
-def get_midnight_expire() -> datetime:
-    """计算到次日凌晨0点（北京时间）的过期时间，返回UTC时间"""
-    tz_beijing = timezone(timedelta(hours=8))
-    now_beijing = datetime.now(tz_beijing)
-    tomorrow = now_beijing + timedelta(days=1)
-    midnight_beijing = tomorrow.replace(hour=0, minute=0, second=0, microsecond=0)
-    midnight_utc = midnight_beijing.astimezone(timezone.utc)
-    return midnight_utc
-
-
 def create_access_token(data: dict) -> str:
     """
     生成 JWT Access Token
@@ -45,7 +35,7 @@ def create_access_token(data: dict) -> str:
         JWT Token 字符串
     """
     to_encode = data.copy()
-    expire = get_midnight_expire()
+    expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(
         to_encode,

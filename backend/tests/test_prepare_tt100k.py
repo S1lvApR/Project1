@@ -11,6 +11,25 @@ sys.modules[SPEC.name] = prepare_tt100k
 SPEC.loader.exec_module(prepare_tt100k)
 
 
+def test_split_records_maps_tt100k_other_to_validation():
+    records = [
+        {"path": "train/a.jpg"},
+        {"path": "other/b.jpg"},
+        {"path": "test/c.jpg"},
+    ]
+
+    splits = prepare_tt100k.split_records(
+        records,
+        val_ratio=0.0,
+        test_ratio=0.0,
+        seed=42,
+    )
+
+    assert [item["path"] for item in splits["train"]] == ["train/a.jpg"]
+    assert [item["path"] for item in splits["val"]] == ["other/b.jpg"]
+    assert [item["path"] for item in splits["test"]] == ["test/c.jpg"]
+
+
 def test_convert_tt100k_generates_yolo_dataset(tmp_path):
     raw_dir = tmp_path / "raw"
     (raw_dir / "data" / "train").mkdir(parents=True)
@@ -109,3 +128,67 @@ def test_min_instances_filters_rare_classes(tmp_path):
     assert stats.skipped_objects == 1
     label = next((output_dir / "labels").glob("**/*.txt")).read_text(encoding="utf-8")
     assert label.count("\n") == 2
+
+
+def test_explicit_class_names_do_not_leak_from_validation(tmp_path):
+    raw_dir = tmp_path / "raw"
+    (raw_dir / "train").mkdir(parents=True)
+    (raw_dir / "other").mkdir(parents=True)
+    (raw_dir / "train" / "train.jpg").write_bytes(b"fake image")
+    (raw_dir / "other" / "validation.jpg").write_bytes(b"fake image")
+    annotations = {
+        "imgs": {
+            "train": {
+                "path": "train/train.jpg",
+                "width": 100,
+                "height": 100,
+                "objects": [
+                    {"category": "common", "bbox": [10, 10, 30, 30]},
+                ],
+            },
+            "validation": {
+                "path": "other/validation.jpg",
+                "width": 100,
+                "height": 100,
+                "objects": [
+                    {"category": "validation_only", "bbox": [10, 10, 30, 30]},
+                ],
+            },
+        }
+    }
+    annotation_path = raw_dir / "annotations.json"
+    annotation_path.write_text(json.dumps(annotations), encoding="utf-8")
+
+    output_dir = tmp_path / "yolo"
+    stats = prepare_tt100k.convert_dataset(
+        annotation_path=annotation_path,
+        image_root=raw_dir,
+        output_dir=output_dir,
+        class_names=["common"],
+        image_mode="none",
+    )
+
+    assert stats.classes == ["common"]
+    assert stats.skipped_objects == 1
+    data_yaml = (output_dir / "data.yaml").read_text(encoding="utf-8")
+    assert '0: "common"' in data_yaml
+    assert "validation_only" not in data_yaml
+
+
+def test_parse_args_accepts_common_45(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "prepare_tt100k.py",
+            "--annotations",
+            str(tmp_path / "annotations.json"),
+            "--image-root",
+            str(tmp_path),
+            "--common-45",
+        ],
+    )
+
+    args = prepare_tt100k.parse_args()
+
+    assert args.common_45 is True

@@ -14,6 +14,7 @@ from app.database.session import Base, get_db
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 
 # ── 测试数据库 ────────────────────────────────────────
 # 使用 SQLite 内存数据库进行测试，避免依赖 PostgreSQL
@@ -25,6 +26,7 @@ TEST_DATABASE_URL = "sqlite:///./test.db"
 test_engine = create_engine(
     TEST_DATABASE_URL,
     connect_args={"check_same_thread": False},  # SQLite 特有参数
+    poolclass=NullPool,
 )
 
 TestSessionLocal = sessionmaker(
@@ -61,9 +63,9 @@ def setup_test_database():
     """
     Base.metadata.create_all(bind=test_engine)
     yield
-    # 测试结束后清理
     Base.metadata.drop_all(bind=test_engine)
-    # 删除 SQLite 文件
+    test_engine.dispose()
+
     import os
 
     if os.path.exists("./test.db"):

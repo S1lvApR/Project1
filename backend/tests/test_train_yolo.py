@@ -73,3 +73,17 @@ def test_validate_yolo_dataset_rejects_missing_images(tmp_path):
 
     with pytest.raises(FileNotFoundError, match="train image directory"):
         train_yolo.validate_yolo_dataset(data_yaml)
+
+
+def test_training_parser_exposes_optimizer_hyperparameters(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["train_yolo.py", "--data", str(tmp_path / "data.yaml")],
+    )
+
+    args = train_yolo.build_parser().parse_args()
+
+    assert args.optimizer == "auto"
+    assert args.lr0 == 0.01
+    assert args.momentum == 0.937
