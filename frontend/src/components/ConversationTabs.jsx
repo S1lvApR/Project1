@@ -2,11 +2,12 @@ import { X, Plus, MessageSquare } from 'lucide-react'
 import { useStore } from '../store/useStore'
 
 export function ConversationTabs({ onCreateConversation }) {
-  const { conversations, activeConversationId, setActiveConversation, closeConversation } = useStore()
+  const { conversations, openTabIds, activeConversationId, setActiveConversation, removeTab } = useStore()
+  const openConversations = conversations.filter((c) => openTabIds.includes(c.id))
 
   return (
     <div className="flex items-center gap-2 overflow-x-auto">
-      {conversations.map((conversation) => (
+      {openConversations.map((conversation) => (
         <div
           key={conversation.id}
           className={`flex items-center gap-2 px-3 py-2 rounded-lg whitespace-nowrap transition-all cursor-pointer ${
@@ -21,7 +22,7 @@ export function ConversationTabs({ onCreateConversation }) {
           <button
             onClick={(e) => {
               e.stopPropagation()
-              closeConversation(conversation.id)
+              removeTab(conversation.id)
             }}
             className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-dark-500 transition-colors"
           >
