@@ -173,3 +173,14 @@ training/runs/
 /Train.tar
 /qq_3045834499/
 /*.zip
+
+# 忽略 Word 文档
+*.doc
+*.docx
+
+# 忽略报告目录（如果整个目录都不需要）
+docs/reports/
+
+# 也可以忽略其他临时文件，例如：
+*.tmp
+*.log
