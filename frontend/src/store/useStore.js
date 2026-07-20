@@ -89,16 +89,19 @@ export const useStore = create((set, get) => ({
     },
   ],
   activeConversationId: '1',
+  openTabIds: ['1'],
   loading: false,
   error: null,
-  theme: 'dark',
+  theme: localStorage.getItem('theme') || 'dark',
 
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
 
-  toggleTheme: () => set((state) => ({
-    theme: state.theme === 'dark' ? 'light' : 'dark',
-  })),
+  toggleTheme: () => set((state) => {
+    const newTheme = state.theme === 'dark' ? 'light' : 'dark'
+    localStorage.setItem('theme', newTheme)
+    return { theme: newTheme }
+  }),
 
   register: async (username, email, password) => {
     get().setLoading(true)
@@ -159,6 +162,7 @@ export const useStore = create((set, get) => ({
           persisted: false,
         },
       ],
+      openTabIds: ['1'],
       activeConversationId: '1',
     })
   },
@@ -490,6 +494,7 @@ export const useStore = create((set, get) => ({
         }
         set((state) => ({
           conversations: [...state.conversations, newConversation],
+          openTabIds: [...state.openTabIds, newConversation.id],
           activeConversationId: newConversation.id,
         }))
         return newConversation.id
@@ -508,6 +513,7 @@ export const useStore = create((set, get) => ({
     }
     set((state) => ({
       conversations: [...state.conversations, newConversation],
+      openTabIds: [...state.openTabIds, newId],
       activeConversationId: newId,
     }))
     return newId
@@ -559,7 +565,15 @@ export const useStore = create((set, get) => ({
   },
 
   setActiveConversation: (id) => {
-    set({ activeConversationId: id })
+    set((state) => {
+      if (!state.openTabIds.includes(id)) {
+        return {
+          activeConversationId: id,
+          openTabIds: [...state.openTabIds, id],
+        }
+      }
+      return { activeConversationId: id }
+    })
   },
 
   closeConversation: async (id) => {
@@ -573,11 +587,23 @@ export const useStore = create((set, get) => ({
     
     set((state) => {
       const conversations = state.conversations.filter((c) => c.id !== id)
+      const openTabIds = state.openTabIds.filter((tid) => tid !== id)
       let newActiveId = state.activeConversationId
       if (state.activeConversationId === id) {
-        newActiveId = conversations.length > 0 ? conversations[0].id : null
+        newActiveId = openTabIds.length > 0 ? openTabIds[openTabIds.length - 1] : null
       }
-      return { conversations, activeConversationId: newActiveId }
+      return { conversations, openTabIds, activeConversationId: newActiveId }
+    })
+  },
+
+  removeTab: (id) => {
+    set((state) => {
+      const openTabIds = state.openTabIds.filter((tid) => tid !== id)
+      let newActiveId = state.activeConversationId
+      if (state.activeConversationId === id) {
+        newActiveId = openTabIds.length > 0 ? openTabIds[openTabIds.length - 1] : null
+      }
+      return { openTabIds, activeConversationId: newActiveId }
     })
   },
 
@@ -799,7 +825,7 @@ export const useStore = create((set, get) => ({
                 createdAt: new Date(),
                 type: 'text',
               }] }
-            : c
+              : c
         ),
       }))
     }

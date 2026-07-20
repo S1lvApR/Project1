@@ -582,16 +582,16 @@ function Get-PythonCommandFromPath {
         return $null
     }
 
-    $command = Get-Command "python.exe" -CommandType Application -ErrorAction SilentlyContinue
-    if ($null -eq $command) {
-        $command = Get-Command "python" -CommandType Application -ErrorAction SilentlyContinue
+    $command = @(Get-Command "python.exe" -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1)
+    if ($command.Count -eq 0) {
+        $command = @(Get-Command "python" -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1)
     }
 
-    if ($null -eq $command) {
+    if ($command.Count -eq 0) {
         return $null
     }
 
-    return $command.Source
+    return $command[0].Source
 }
 
 function Get-NodeCommandFromPath {
