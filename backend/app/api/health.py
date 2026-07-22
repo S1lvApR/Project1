@@ -45,7 +45,11 @@ def health_check_detail():
         # 执行最简单的查询验证连接（SQLAlchemy 2.x 语法）
         db.execute(text("SELECT 1"))
         db.close()
-        services["database"] = {"status": "healthy", "message": "PostgreSQL 连接正常"}
+        database_name = "SQLite" if settings.database_url.startswith("sqlite") else "PostgreSQL"
+        services["database"] = {
+            "status": "healthy",
+            "message": f"{database_name} \u8fde\u63a5\u6b63\u5e38",
+        }
     except Exception as e:
         services["database"] = {
             "status": "unhealthy",
@@ -54,39 +58,54 @@ def health_check_detail():
         logger.error("PostgreSQL 健康检查失败: %s", str(e))
 
     # ── 检查 Redis ───────────────────────────────────
-    try:
-        import redis
+    if settings.redis_enabled:
+        try:
+            import redis
 
-        r = redis.from_url(settings.REDIS_URL)
-        r.ping()
-        r.close()
-        services["redis"] = {"status": "healthy", "message": "Redis 连接正常"}
-    except Exception as e:
+            r = redis.from_url(settings.REDIS_URL)
+            r.ping()
+            r.close()
+            services["redis"] = {"status": "healthy", "message": "Redis 连接正常"}
+        except Exception as e:
+            services["redis"] = {
+                "status": "unhealthy",
+                "message": f"Redis 连接失败: {str(e)}",
+            }
+            logger.error("Redis 健康检查失败: %s", str(e))
+    else:
         services["redis"] = {
-            "status": "unhealthy",
-            "message": f"Redis 连接失败: {str(e)}",
+            "status": "disabled",
+            "message": "Redis 已在当前运行模式中禁用",
         }
-        logger.error("Redis 健康检查失败: %s", str(e))
 
     # ── 检查 MinIO ───────────────────────────────────
-    try:
-        import urllib.request
+    if settings.minio_enabled:
+        try:
+            import urllib.request
 
-        scheme = "https" if settings.MINIO_SECURE else "http"
-        url = f"{scheme}://{settings.MINIO_ENDPOINT}/minio/health/live"
-        with urllib.request.urlopen(url, timeout=3) as response:
-            if response.status >= 400:
-                raise RuntimeError(f"MinIO health status: {response.status}")
-        services["minio"] = {"status": "healthy", "message": "MinIO 连接正常"}
-    except Exception as e:
+            scheme = "https" if settings.MINIO_SECURE else "http"
+            url = f"{scheme}://{settings.MINIO_ENDPOINT}/minio/health/live"
+            with urllib.request.urlopen(url, timeout=3) as response:
+                if response.status >= 400:
+                    raise RuntimeError(f"MinIO health status: {response.status}")
+            services["minio"] = {"status": "healthy", "message": "MinIO 连接正常"}
+        except Exception as e:
+            services["minio"] = {
+                "status": "unhealthy",
+                "message": f"MinIO 连接失败: {str(e)}",
+            }
+            logger.error("MinIO 健康检查失败: %s", str(e))
+    else:
         services["minio"] = {
-            "status": "unhealthy",
-            "message": f"MinIO 连接失败: {str(e)}",
+            "status": "disabled",
+            "message": "MinIO 已在当前运行模式中禁用",
         }
-        logger.error("MinIO 健康检查失败: %s", str(e))
 
     # ── 汇总状态 ─────────────────────────────────────
-    all_healthy = all(s["status"] == "healthy" for s in services.values())
+    all_healthy = all(
+        service["status"] in {"healthy", "disabled"}
+        for service in services.values()
+    )
 
     return {
         "code": 200,

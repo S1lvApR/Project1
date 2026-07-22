@@ -158,6 +158,9 @@ def train(args: argparse.Namespace) -> Path | None:
         patience=args.patience,
         fraction=args.fraction,
         resume=args.resume,
+        optimizer=args.optimizer,
+        lr0=args.lr0,
+        momentum=args.momentum,
     )
     save_dir = Path(result.save_dir)
     print(f"Training finished: {save_dir}")
@@ -176,6 +179,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--project", default=Path("runs/train"), type=Path, help="Output directory")
     parser.add_argument("--name", default="traffic_tt100k_yolo11n", help="Run name")
     parser.add_argument("--patience", default=20, type=int, help="Early stopping patience")
+    parser.add_argument("--optimizer", default="auto", help="Optimizer name, for example SGD or AdamW")
+    parser.add_argument("--lr0", default=0.01, type=float, help="Initial learning rate")
+    parser.add_argument("--momentum", default=0.937, type=float, help="SGD momentum or Adam beta1")
     parser.add_argument("--cache", action="store_true", help="Cache images for faster training")
     parser.add_argument("--fraction", default=1.0, type=float, help="Dataset fraction used for training")
     parser.add_argument("--resume", action="store_true", help="Resume training from the model checkpoint")

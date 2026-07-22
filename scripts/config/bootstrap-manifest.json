@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "runtime": {
+    "python": {
+      "version": "3.10.11",
+      "filename": "python-3.10.11-amd64.exe",
+      "url": "https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe",
+      "sha256": "D8DEDE5005564B408BA50317108B765ED9C3C510342A598F9FD42681CBE0648B"
+    },
+    "node": {
+      "version": "24.18.0",
+      "filename": "node-v24.18.0-win-x64.zip",
+      "url": "https://nodejs.org/dist/v24.18.0/node-v24.18.0-win-x64.zip",
+      "sha256": "0AE68406B42D7725661DA979B1403EC9926DA205C6770827F33AAC9D8F26E821"
+    }
+  },
+  "release": {
+    "repository": "Dman-s/Project1",
+    "tag": "models-v1",
+    "models": [
+      {
+        "filename": "tt100k-yolo11s-reference42.pt",
+        "bytes": 19231379,
+        "sha256": "E8A0E0F1E5A9004C708D7EEE9EDD97E9E9D0A7986023E96C807D0FFCD3D50F88",
+        "url": "https://github.com/Dman-s/Project1/releases/download/models-v1/tt100k-yolo11s-reference42.pt",
+        "purpose": "default detector",
+        "source": "42-class YOLO11 TT100K training project supplied by the repository owner",
+        "license": "Ultralytics AGPL-3.0; TT100K CC-BY-NC"
+      },
+      {
+        "filename": "gtsrb-yolo11n-cls.pt",
+        "bytes": 3291010,
+        "sha256": "323E5BD1B0DC5D1F6FBB4C487FAF2320DA0DF9C21132DD46C0C94FEE7B33B16C",
+        "url": "https://github.com/Dman-s/Project1/releases/download/models-v1/gtsrb-yolo11n-cls.pt",
+        "purpose": "default classifier",
+        "source": "Project1 GTSRB training",
+        "license": "AGPL-3.0"
+      }
+    ]
+  }
+}

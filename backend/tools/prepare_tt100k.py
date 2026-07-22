@@ -28,12 +28,65 @@ import shutil
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 
 SPLITS = ("train", "val", "test")
-VALID_SPLIT_NAMES = {"train": "train", "val": "val", "valid": "val", "test": "test"}
+VALID_SPLIT_NAMES = {
+    "train": "train",
+    "other": "val",
+    "val": "val",
+    "valid": "val",
+    "test": "test",
+}
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".bmp"}
+COMMON_45_CLASSES = (
+    "i2",
+    "i4",
+    "i5",
+    "il100",
+    "il60",
+    "il80",
+    "io",
+    "ip",
+    "p10",
+    "p11",
+    "p12",
+    "p19",
+    "p23",
+    "p26",
+    "p27",
+    "p3",
+    "p5",
+    "p6",
+    "pg",
+    "ph4",
+    "ph4.5",
+    "ph5",
+    "pl100",
+    "pl120",
+    "pl20",
+    "pl30",
+    "pl40",
+    "pl5",
+    "pl50",
+    "pl60",
+    "pl70",
+    "pl80",
+    "pm20",
+    "pm30",
+    "pm55",
+    "pn",
+    "pne",
+    "po",
+    "pr40",
+    "w13",
+    "w32",
+    "w55",
+    "w57",
+    "w59",
+    "wo",
+)
 
 
 @dataclass(frozen=True)
@@ -288,10 +341,16 @@ def convert_dataset(
     test_ratio: float = 0.1,
     seed: int = 42,
     image_mode: str = "copy",
+    class_names: Sequence[str] | None = None,
 ) -> DatasetStats:
     records = load_tt100k_records(annotation_path)
-    class_counts = collect_class_counts(records)
-    classes = select_classes(class_counts, min_instances)
+    if class_names is None:
+        class_counts = collect_class_counts(records)
+        classes = select_classes(class_counts, min_instances)
+    else:
+        classes = [str(name).strip() for name in class_names if str(name).strip()]
+        if len(classes) != len(set(classes)):
+            raise ValueError("Class names must be unique")
     if not classes:
         raise ValueError("No classes selected. Lower --min-instances or check annotations.")
 
@@ -367,6 +426,11 @@ def parse_args() -> argparse.Namespace:
         default=1,
         help="Keep classes with at least this many annotated objects",
     )
+    parser.add_argument(
+        "--common-45",
+        action="store_true",
+        help="Use the fixed TT100K common 45-class vocabulary",
+    )
     parser.add_argument("--val-ratio", type=float, default=0.1, help="Validation ratio when TT100K has no val split")
     parser.add_argument("--test-ratio", type=float, default=0.1, help="Test ratio for records without official split")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for generated splits")
@@ -390,6 +454,7 @@ def main() -> None:
         test_ratio=args.test_ratio,
         seed=args.seed,
         image_mode=args.image_mode,
+        class_names=COMMON_45_CLASSES if args.common_45 else None,
     )
 
     print("TT100K YOLO dataset prepared")

@@ -6,6 +6,8 @@
   - GET / 返回欢迎信息
 """
 
+from app.config.settings import settings
+
 
 def test_health_check(client):
     """测试基础健康检查接口"""
@@ -19,7 +21,7 @@ def test_health_check(client):
     assert data["code"] == 200
     assert data["message"] == "ok"
     assert data["data"]["status"] == "healthy"
-    assert data["data"]["app_name"] == "L Agent Platform"
+    assert data["data"]["app_name"] == settings.APP_NAME
     assert "version" in data["data"]
 
 

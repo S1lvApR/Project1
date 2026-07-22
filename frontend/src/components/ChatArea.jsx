@@ -1,9 +1,11 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
-import { Bot, User, Sparkles, Upload, FolderOpen, Loader2, Image } from 'lucide-react'
+import { Bot, User, Sparkles, Upload, FolderOpen, Loader2, Image, Video } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import { SignDetectionResult } from './SignDetectionResult'
+import { VideoDetectionResult } from './VideoDetectionResult'
 
 export function ChatArea() {
-  const { conversations, activeConversationId, user, recognizeLicensePlate, recognizeHumans, recognizeSigns, loading } = useStore()
+  const { conversations, activeConversationId, user, recognizeLicensePlate, recognizeHumans, recognizeSigns, detectVideo, loading } = useStore()
   const messagesEndRef = useRef(null)
   const [uploadingMessageId, setUploadingMessageId] = useState(null)
 
@@ -88,6 +90,47 @@ export function ChatArea() {
     await recognizeSigns(conversationId, imageFiles)
     setUploadingMessageId(null)
   }, [recognizeSigns])
+
+  const handleVideoUpload = useCallback(async (e, conversationId) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setUploadingMessageId(conversationId)
+    try {
+      await detectVideo(conversationId, file)
+    } finally {
+      setUploadingMessageId(null)
+    }
+  }, [detectVideo])
+
+  const renderVideoUploadCard = (conversationId) => {
+    const isUploading = uploadingMessageId === conversationId
+    return (
+      <div className="rounded-lg border border-dark-600 bg-dark-700 p-5">
+        <p className="mb-4 font-medium text-white">视频交通标志检测</p>
+        <button
+          onClick={() => document.getElementById(`video-upload-${conversationId}`)?.click()}
+          disabled={isUploading}
+          className="flex w-full items-center justify-center gap-3 rounded-lg border border-dashed border-dark-500 px-5 py-6 text-dark-200 transition-colors hover:border-accent-500 hover:bg-dark-600 disabled:opacity-50"
+        >
+          {isUploading ? (
+            <Loader2 className="h-5 w-5 animate-spin text-accent-400" />
+          ) : (
+            <Video className="h-5 w-5 text-accent-400" />
+          )}
+          <span>{isUploading ? '正在上传视频' : '选择视频'}</span>
+        </button>
+        <input
+          id={`video-upload-${conversationId}`}
+          type="file"
+          accept=".mp4,.avi,.mov,.mkv,.wmv,.flv"
+          onChange={(event) => handleVideoUpload(event, conversationId)}
+          className="hidden"
+        />
+        <p className="mt-3 text-xs text-dark-400">MP4 / AVI / MOV / MKV / WMV / FLV，最大 50 MB</p>
+      </div>
+    )
+  }
 
   const renderHumanCountUploadCard = (conversationId) => {
     const isUploading = uploadingMessageId === conversationId || loading
@@ -235,7 +278,7 @@ export function ChatArea() {
     return (
       <div className="p-6 rounded-2xl bg-dark-700 border border-dark-600">
         <p className="text-white font-medium mb-4">交通标志与信号灯识别</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           <button
             onClick={() => document.getElementById(`sign-image-upload-${conversationId}`)?.click()}
             disabled={isUploading}
@@ -283,6 +326,18 @@ export function ChatArea() {
             <span className="text-white font-medium">上传ZIP</span>
             <span className="text-dark-500 text-sm mt-1">压缩包批量识别</span>
           </button>
+
+          <button
+            onClick={() => document.getElementById(`sign-video-upload-${conversationId}`)?.click()}
+            disabled={isUploading}
+            className="flex flex-col items-center justify-center p-6 rounded-xl border-2 border-dashed border-dark-500 hover:border-accent-500 hover:bg-dark-600 transition-all group disabled:opacity-50"
+          >
+            <div className="w-12 h-12 rounded-full bg-accent-500/10 flex items-center justify-center mb-3 group-hover:bg-accent-500/20 transition-colors">
+              <Video className="w-6 h-6 text-accent-500" />
+            </div>
+            <span className="text-white font-medium">上传视频</span>
+            <span className="text-dark-500 text-sm mt-1">最大 50 MB</span>
+          </button>
         </div>
 
         <input
@@ -310,6 +365,14 @@ export function ChatArea() {
           type="file"
           accept=".zip"
           onChange={(e) => handleSignImageUpload(e, conversationId)}
+          className="hidden"
+        />
+
+        <input
+          id={`sign-video-upload-${conversationId}`}
+          type="file"
+          accept=".mp4,.avi,.mov,.mkv,.wmv,.flv"
+          onChange={(event) => handleVideoUpload(event, conversationId)}
           className="hidden"
         />
 
@@ -387,6 +450,14 @@ export function ChatArea() {
                 <div className="max-w-[75%]">
                   {renderSignUploadCard(message.conversationId)}
                 </div>
+              ) : message.type === 'sign_result' ? (
+                <SignDetectionResult data={message.resultData} />
+              ) : message.type === 'video_upload' ? (
+                <div className="max-w-[75%]">
+                  {renderVideoUploadCard(message.conversationId)}
+                </div>
+              ) : message.type === 'video_result' ? (
+                <VideoDetectionResult data={message.resultData} />
               ) : (
                 <div
                   className={`max-w-[75%] p-4 rounded-2xl ${

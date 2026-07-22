@@ -1,21 +1,23 @@
 /**
- * Fetch 请求封装测试
+ * Axios 请求封装测试
  *
  * 测试目标：
- *   - request 实例创建正确
- *   - Token 自动注入
- *   - 错误处理逻辑
+ *   - Axios 实例创建正确
+ *   - 请求拦截器正常注入 Token
+ *   - 响应拦截器正确处理错误
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-describe("Fetch 请求封装", () => {
+describe("Axios 请求封装", () => {
   beforeEach(() => {
+    // 每个测试前清除 mock
     vi.clearAllMocks();
+    // 清除 localStorage
     localStorage.clear();
   });
 
-  it("应该正确创建 request 实例", async () => {
+  it("应该正确创建 axios 实例", async () => {
     const { default: request } = await import("@/utils/request");
     expect(request).toBeDefined();
     expect(request.defaults.baseURL).toBe("/api");

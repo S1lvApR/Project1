@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { User, LogOut, Sun, Moon, Mail, Lock, Upload, X } from 'lucide-react'
+import { User, LogOut, Sun, Moon, Mail, Lock, Upload, X, Camera } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { LeftSidebar } from '../components/LeftSidebar'
 import { ConversationTabs } from '../components/ConversationTabs'
@@ -8,6 +9,7 @@ import { ChatInput } from '../components/ChatInput'
 import { LoginModal } from '../components/LoginModal'
 
 export default function Home() {
+  const navigate = useNavigate()
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
   const [showLogout, setShowLogout] = useState(false)
   const logoutTimeout = useRef(null)
@@ -97,6 +99,13 @@ export default function Home() {
             </div>
 
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate('/camera')}
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-dark-700 text-dark-300 transition-colors hover:bg-dark-600 hover:text-white"
+                title="摄像头实时检测"
+              >
+                <Camera className="h-4 w-4" />
+              </button>
               {!user && (
                 <button
                   onClick={() => setIsLoginModalOpen(true)}

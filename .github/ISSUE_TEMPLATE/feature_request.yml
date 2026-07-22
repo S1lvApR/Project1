@@ -1,0 +1,37 @@
+name: Feature request
+description: Propose an improvement to the Windows setup or application workflow.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and use case
+      description: Describe the problem, who encounters it, and the workflow where it occurs.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_behavior
+    attributes:
+      label: Proposed behavior
+      description: Describe the desired behavior and what a successful result looks like.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe current workarounds and other approaches you considered.
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Workflow, model, and data impact
+      description: Explain changes to user workflows, model requirements or provenance, and data formats, storage, downloads, or licensing. State "none" for each unaffected area.
+    validations:
+      required: true

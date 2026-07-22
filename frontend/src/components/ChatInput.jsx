@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Send, Image } from 'lucide-react'
+import { Send, Image, Video } from 'lucide-react'
 import { useStore } from '../store/useStore'
 
 export function ChatInput({ style }) {
@@ -41,8 +41,20 @@ export function ChatInput({ style }) {
               sendMessage(activeConversationId, '标志识别')
             }}
             className="w-10 h-10 rounded-xl flex items-center justify-center transition-all flex-shrink-0 bg-dark-700 text-dark-400 hover:text-white hover:bg-dark-600"
+            title="图片识别"
           >
             <Image className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => {
+              if (!activeConversationId) return
+              sendMessage(activeConversationId, '视频检测')
+            }}
+            className="w-10 h-10 rounded-xl flex items-center justify-center transition-all flex-shrink-0 bg-dark-700 text-dark-400 hover:text-white hover:bg-dark-600"
+            title="视频检测"
+          >
+            <Video className="w-4 h-4" />
           </button>
 
           <div className="flex-1 relative flex flex-col min-h-0">

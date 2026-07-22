@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import { formatSignResult } from '../utils/signResults'
+import { pollVideoStatus, uploadVideo } from '../api/detection'
 
 const API_BASE = '/api'
 
@@ -12,68 +14,6 @@ const mockResponses = [
 
 const generateResponse = () => {
   return mockResponses[Math.floor(Math.random() * mockResponses.length)]
-}
-
-const formatSignResult = (data) => {
-  if (!data) return '识别完成'
-  
-  let result = `识别时间：${data.time}\n\n`
-  result += `共识别 ${data.total_images} 张图片\n`
-  
-  if (data.total_signs > 0) {
-    result += `\n🚦 交通标志（共 ${data.total_signs} 个）：\n`
-    data.results?.forEach((imageResult, index) => {
-      if (imageResult.traffic_signs && imageResult.traffic_signs.length > 0) {
-        result += `\n图片 ${index + 1}：\n`
-        imageResult.traffic_signs.forEach(sign => {
-          result += `- ${sign.type}：${sign.value || '无'}，置信度 ${sign.confidence}%\n`
-        })
-      }
-    })
-  }
-  
-  if (data.total_lights > 0) {
-    result += `\n🔴 交通信号灯（共 ${data.total_lights} 个）：\n`
-    data.results?.forEach((imageResult, index) => {
-      if (imageResult.traffic_lights && imageResult.traffic_lights.length > 0) {
-        result += `\n图片 ${index + 1}：\n`
-        imageResult.traffic_lights.forEach(light => {
-          const statusText = { red: '红灯', green: '绿灯', yellow: '黄灯' }
-          result += `- 信号灯：${statusText[light.status] || light.status}，置信度 ${light.confidence}%\n`
-        })
-      }
-    })
-  }
-  
-  if (data.total_signs === 0 && data.total_lights === 0) {
-    result += '\n未识别到交通标志和信号灯'
-  }
-  
-  return result
-}
-
-const formatLicensePlateResult = (data) => {
-  if (!data) return "识别完成"
-  let result = `识别时间：${data.time || ""}\n\n`
-  const plates = data.plates || data.results || []
-  result += `共识别 ${plates.length} 个车牌\n`
-  if (plates.length > 0) {
-    result += "\n🚗 车牌识别结果：\n"
-    plates.forEach((plate, i) => {
-      result += `\n${i + 1}. 车牌号：${plate.plate_number || plate.text || "未知"}`
-      if (plate.confidence) result += `，置信度 ${plate.confidence}%`
-      result += "\n"
-    })
-  } else { result += "\n未识别到车牌" }
-  return result
-}
-
-const formatHumanResult = (data) => {
-  if (!data) return "识别完成"
-  let result = `识别时间：${data.time || ""}\n\n`
-  result += `共识别 ${data.total_images || 0} 张图片\n`
-  result += `检测到 ${data.total_humans || data.total_objects || 0} 人\n`
-  return result
 }
 
 const getToken = () => {
@@ -411,7 +351,8 @@ export const useStore = create((set, get) => ({
                     role: 'assistant',
                     content: resultContent,
                     createdAt: new Date(),
-                    type: 'text',
+                    type: 'sign_result',
+                    resultData: data.data,
                   },
                 ],
               }
@@ -436,58 +377,101 @@ export const useStore = create((set, get) => ({
     }
   },
 
-  recognizeLicensePlate: async (conversationId, files) => {
-    get().setLoading(true)
-    try {
-      conversationId = await get().ensureConversationPersisted(conversationId)
-      const formData = new FormData()
-      files.forEach(f => formData.append("files", f))
-      const data = await requestFormData("/sign-analyzer/batch", { method: "POST", body: formData })
-      const resultContent = formatLicensePlateResult(data.data)
+  detectVideo: async (conversationId, file, options = {}) => {
+    conversationId = await get().ensureConversationPersisted(conversationId)
+    const now = Date.now()
+    const resultMessageId = `video-result-${now}`
+    const initialData = {
+      filename: file.name,
+      status: 'pending',
+      progress: 0,
+      processed_frames: 0,
+      sampled_frames: 0,
+      key_frames: [],
+    }
+    const updateResult = (resultData) => {
       set((state) => ({
-        conversations: state.conversations.map(c =>
-          c.id === conversationId ? {
-            ...c,
-            title: c.messages.length === 0 ? "车牌识别" : c.title,
-            messages: [...c.messages,
-              { id: Date.now().toString(), conversationId, role: "user", content: `上传了 ${files.length} 张图片进行车牌识别`, createdAt: new Date() },
-              { id: (Date.now()+1).toString(), conversationId, role: "assistant", content: resultContent, createdAt: new Date(), type: "text" },
-            ],
-          } : c
+        conversations: state.conversations.map((conversation) =>
+          conversation.id === conversationId
+            ? {
+                ...conversation,
+                messages: conversation.messages.map((message) =>
+                  message.id === resultMessageId
+                    ? {
+                        ...message,
+                        resultData: {
+                          ...message.resultData,
+                          ...resultData,
+                          filename: resultData.filename || file.name,
+                        },
+                      }
+                    : message,
+                ),
+              }
+            : conversation,
         ),
       }))
-      await get().saveMessage(conversationId, "user", `上传了 ${files.length} 张图片进行车牌识别`)
-      await get().saveMessage(conversationId, "assistant", resultContent)
-      return data
-    } catch (error) { get().setError(error.message); throw error }
-    finally { get().setLoading(false) }
-  },
+    }
 
-  recognizeHumans: async (conversationId, files) => {
-    get().setLoading(true)
+    set((state) => ({
+      conversations: state.conversations.map((conversation) =>
+        conversation.id === conversationId
+          ? {
+              ...conversation,
+              title: conversation.messages.length === 0
+                ? '视频交通标志检测'
+                : conversation.title,
+              messages: [
+                ...conversation.messages,
+                {
+                  id: `video-user-${now}`,
+                  conversationId,
+                  role: 'user',
+                  content: `上传视频：${file.name}`,
+                  createdAt: new Date(),
+                },
+                {
+                  id: resultMessageId,
+                  conversationId,
+                  role: 'assistant',
+                  content: '视频检测处理中',
+                  createdAt: new Date(),
+                  type: 'video_result',
+                  resultData: initialData,
+                },
+              ],
+            }
+          : conversation,
+      ),
+    }))
+
     try {
-      conversationId = await get().ensureConversationPersisted(conversationId)
-      const formData = new FormData()
-      files.forEach(f => formData.append("files", f))
-      const data = await requestFormData("/sign-analyzer/batch", { method: "POST", body: formData })
-      const resultContent = formatHumanResult(data.data)
-      set((state) => ({
-        conversations: state.conversations.map(c =>
-          c.id === conversationId ? {
-            ...c,
-            title: c.messages.length === 0 ? "行人检测" : c.title,
-            messages: [...c.messages,
-              { id: Date.now().toString(), conversationId, role: "user", content: `上传了 ${files.length} 张图片进行行人检测`, createdAt: new Date() },
-              { id: (Date.now()+1).toString(), conversationId, role: "assistant", content: resultContent, createdAt: new Date(), type: "text" },
-            ],
-          } : c
-        ),
-      }))
-      await get().saveMessage(conversationId, "user", `上传了 ${files.length} 张图片进行行人检测`)
-      await get().saveMessage(conversationId, "assistant", resultContent)
-      return data
-    } catch (error) { get().setError(error.message); throw error }
-    finally { get().setLoading(false) }
+      const submission = await uploadVideo(file, options)
+      updateResult({ ...submission, filename: file.name })
+      const result = await pollVideoStatus(submission.task_id, {
+        onProgress: updateResult,
+      })
+      updateResult(result)
+      await get().saveMessage(conversationId, 'user', `上传视频：${file.name}`)
+      if (result.status === 'failed') {
+        await get().saveMessage(
+          conversationId,
+          'assistant',
+          `视频检测失败：${result.error || '服务未能完成该任务'}`,
+        )
+      } else {
+        await get().saveMessage(
+          conversationId,
+          'assistant',
+          `视频检测完成：${result.total_objects || 0} 个交通标志，${result.key_frames?.length || 0} 个关键帧`,
+        )
+      }
+      return result
+    } catch (error) {
+      updateResult({ status: 'failed', error: error.message })
+      get().setError(error.message)
+      throw error
+    }
   },
 
   addConversation: async () => {
@@ -609,6 +593,31 @@ export const useStore = create((set, get) => ({
     conversationId = await get().ensureConversationPersisted(conversationId)
     const trimmedContent = content.trim().toLowerCase()
     
+    if (trimmedContent.includes('视频检测') || trimmedContent.includes('视频识别')) {
+      const uploadMessage = {
+        id: Date.now().toString(),
+        conversationId,
+        role: 'assistant',
+        content: '',
+        createdAt: new Date(),
+        type: 'video_upload',
+      }
+      set((state) => ({
+        conversations: state.conversations.map((conversation) =>
+          conversation.id === conversationId
+            ? {
+                ...conversation,
+                messages: [...conversation.messages, uploadMessage],
+                title: conversation.messages.length === 0
+                  ? '视频交通标志检测'
+                  : conversation.title,
+              }
+            : conversation,
+        ),
+      }))
+      return
+    }
+
     if (trimmedContent.includes('标志识别') || trimmedContent.includes('交通标志') || trimmedContent.includes('信号灯')) {
       const uploadMessage = {
         id: Date.now().toString(),

@@ -4,13 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "vite --configLoader native",
+    "build": "vite build --configLoader native",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "preview": "vite preview --configLoader native",
+    "test": "vitest --configLoader native",
+    "test:run": "vitest run --configLoader native",
+    "test:coverage": "vitest run --coverage --configLoader native"
   },
   "dependencies": {
     "clsx": "^2.1.1",

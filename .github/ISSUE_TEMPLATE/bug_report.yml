@@ -1,0 +1,82 @@
+name: Bug report
+description: Report a reproducible problem with the Windows setup or application.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: input
+    id: windows_version
+    attributes:
+      label: Windows version and build
+      description: Run `winver` and provide the edition, version, and OS build.
+      placeholder: Windows 11 Pro, version 24H2, OS build 26100.0000
+    validations:
+      required: true
+
+  - type: input
+    id: powershell_version
+    attributes:
+      label: PowerShell version
+      description: Provide the output of `$PSVersionTable.PSVersion.ToString()`.
+      placeholder: 5.1.26100.0000
+    validations:
+      required: true
+
+  - type: textarea
+    id: gpu_driver
+    attributes:
+      label: GPU, driver, and nvidia-smi
+      description: List the GPU and driver version. For NVIDIA systems, include sanitized `nvidia-smi` output; otherwise state that it is not applicable.
+      render: shell
+    validations:
+      required: true
+
+  - type: dropdown
+    id: selected_mode
+    attributes:
+      label: Selected mode
+      options:
+        - CPU
+        - NVIDIA GPU
+        - Docker
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor_output
+    attributes:
+      label: Sanitized doctor.ps1 -Json output
+      description: Paste the complete sanitized JSON output from `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/doctor.ps1 -Json`.
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Exact reproduction steps
+      description: Include every command and action needed to reproduce the problem, plus the expected and actual results.
+      placeholder: |
+        1. Run ...
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste sanitized logs and error output. Include timestamps and component names where available.
+      render: shell
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: secrets_removed
+    attributes:
+      label: Sensitive information
+      options:
+        - label: I removed API keys, tokens, passwords, private URLs, personal data, and other secrets from this report.
+          required: true

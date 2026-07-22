@@ -22,7 +22,7 @@ from app.services.user_service import user_service
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.responses import JSONResponse
-from jose import JWTError
+from jwt.exceptions import InvalidTokenError as JWTError
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/api/auth", tags=["认证"])

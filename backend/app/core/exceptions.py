@@ -15,7 +15,7 @@ from app.core.logger import get_logger
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from jose import JWTError
+from jwt.exceptions import InvalidTokenError as JWTError
 
 logger = get_logger(__name__)
 
